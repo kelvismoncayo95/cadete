@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cadete · pedidos y reparto en Montevideo</title>
+  <link rel="stylesheet" href="/css/cadete.css">
+</head>
+<body>
+  <div class="aviso-fijo">Datos inventados · demo pública · se reinicia cada noche</div>
+  <main class="contenedor" id="raiz">
+    <h1 style="font-size:34px;color:var(--acento)">Cadete</h1>
+    <p style="font-size:18px;margin:0 0 4px">Pedí, seguí y recibí. Un sistema de reparto para Montevideo.</p>
+    <p class="suave">Elegí quién querés ser. Es una demo con dinero y datos de mentira: el mapa, los repartidores y los pedidos se mueven de verdad.</p>
+    <div id="aviso-sesion"></div>
+    <div id="grupos"><div class="esqueleto"></div></div>
+    <h2>¿Preferís escribir tu usuario?</h2>
+    <form id="manual" class="tarjeta">
+      <label for="usuario">Usuario</label><input id="usuario" type="text" autocomplete="username" autocapitalize="none" required>
+      <label for="clave">Contraseña</label><input id="clave" type="password" autocomplete="current-password" required>
+      <p class="suave">La contraseña de la demo es <b id="clave-demo">demo1234</b> para todos los usuarios (es pública a propósito).</p>
+      <button class="btn" type="submit">Entrar</button>
+    </form>
+  </main>
+  <script type="module" src="/js/entrada.js"></script>
+</body>
+</html>

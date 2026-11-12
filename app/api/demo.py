@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.redis import get_redis
 from app.models import User
 from app.schemas.order import OrderDetailOut
+from app.seed import DEMO_PASSWORD, usuarios_de_demo
 from app.services.demo import crear_pedido_simulado
 from app.services.events import publicar_estado
 
@@ -29,3 +30,9 @@ def simular_un_pedido(
     cuerpo = crear_pedido_simulado(db, r, usuario, random.Random())
     publicar_estado(db, r, uuid.UUID(cuerpo["id"]))
     return cuerpo
+
+
+@router.get("/users")
+def usuarios_de_la_demo():
+    """Pública a propósito: la contraseña de la demo es única y pública, y solo protege datos inventados."""
+    return {"password": DEMO_PASSWORD, "users": usuarios_de_demo()}

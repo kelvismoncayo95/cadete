@@ -14,7 +14,10 @@ from app.models import Courier, Merchant, Product, User
 DEMO_PASSWORD = "demo1234"
 
 CLIENTES = [("ana", "Ana"), ("pedro", "Pedro")]
-REPARTIDORES = [("luis", "Luis", "moto"), ("marta", "Marta", "bici"), ("diego", "Diego", "moto")]
+REPARTIDORES = [("luis", "Luis", "moto"), ("marta", "Marta", "bici"), ("diego", "Diego", "moto"),
+                ("rosa", "Rosa", "bici")]
+# Los maneja el simulador. Rosa NO: es para que quien visita la demo pruebe el rol de repartidor a mano.
+SIMULADOS = ("luis", "marta", "diego")
 ADMINS = [("admin", "Administrador")]
 
 
@@ -65,6 +68,17 @@ def seed_usuarios(session: Session) -> None:
         if session.scalar(select(Courier).where(Courier.user_id == usuario.id)) is None:
             session.add(Courier(user_id=usuario.id, vehicle=vehiculo))
     session.commit()
+
+
+def usuarios_de_demo() -> list[dict]:
+    """La lista pública de usuarios de demo (para la pantalla de entrada)."""
+    lista = [{"username": u, "display_name": n, "role": "customer", "simulated": False} for u, n in CLIENTES]
+    lista += [{"username": c["username"], "display_name": c["name"], "role": "merchant", "simulated": False}
+              for c in COMERCIOS]
+    lista += [{"username": u, "display_name": n, "role": "courier", "simulated": u in SIMULADOS}
+              for u, n, _ in REPARTIDORES]
+    lista += [{"username": u, "display_name": n, "role": "admin", "simulated": False} for u, n in ADMINS]
+    return lista
 
 
 def seed_comercios(session: Session) -> None:

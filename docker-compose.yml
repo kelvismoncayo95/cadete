@@ -44,6 +44,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cadete}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cadete}
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET en el .env}
+      # La demo corre acelerada (el simulador se mueve a ~90 km/h): el tiempo estimado usa la misma velocidad.
+      VELOCIDAD_ESTIMADA_KMH: ${VELOCIDAD_ESTIMADA_KMH:-90}
     ports:
       - "8001:8000"
     volumes:

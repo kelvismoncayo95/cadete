@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.core.zone import dentro_de_montevideo
 from app.models import Courier, DispatchOffer, Merchant, Order, OrderEvent, User
-from app.seed import seed_demo
+from app.seed import COMERCIOS, SIMULADOS, seed_demo
 from app.services.demo import MARCA
 from app.services.dispatch import despachar_pedido
 from app.services.events import CANAL_TODO
@@ -51,8 +51,12 @@ def test_los_repartidores_de_la_demo_aparecen_disponibles_y_con_posicion(sesion,
     seed_demo(sesion)
     tick(sesion, redis_test, cfg=SIN_PEDIDOS, rng=random.Random(1))
     sesion.expire_all()
-    for c in sesion.scalars(select(Courier)):
-        assert c.status == "available" and c.last_location is not None
+    for nombre in SIMULADOS:
+        c = sesion.scalar(select(Courier).join(User).where(User.username == nombre))
+        assert c.status == "available" and c.last_location is not None, nombre
+    # Rosa es para probar a mano: el simulador no la toca.
+    rosa = sesion.scalar(select(Courier).join(User).where(User.username == "rosa"))
+    assert rosa.status == "offline" and rosa.last_location is None
 
 
 def test_los_que_no_son_de_la_demo_no_se_tocan(sesion, redis_test):
@@ -197,3 +201,36 @@ def test_el_boton_sin_comercios_explica_que_pasa(cliente, sesion):
     yo = crear_cliente(sesion)
     r = cliente.post("/demo/simulate-order", headers=cabecera(yo.id))
     assert r.status_code == 409 and "comercios" in r.json()["detail"]
+
+
+def test_los_destinos_de_la_demo_estan_dentro_de_la_zona():
+    from app.services.demo import DESTINOS
+
+    assert len(DESTINOS) >= 10
+    for barrio, lat, lon in DESTINOS:
+        assert dentro_de_montevideo(lat, lon), barrio
+
+
+def test_el_destino_simulado_es_uno_de_la_lista_y_no_queda_pegado_al_comercio():
+    from app.services.demo import DESTINOS, _destino_cerca
+
+    for semilla in range(30):
+        barrio, lat, lon = _destino_cerca(random.Random(semilla), -34.9100, -56.1500)
+        assert (barrio, lat, lon) in DESTINOS
+        assert 400 <= distancia_m(-34.9100, -56.1500, lat, lon) <= 5000
+
+
+def test_los_repartidores_libres_se_quedan_cerca_de_un_punto_en_tierra(sesion, redis_test):
+    """Antes se paseaban al azar y se metían en el río. Ahora no se alejan de un comercio o barrio conocido."""
+    from app.services.demo import DESTINOS
+    from app.simulator.engine import RADIO_DE_PASEO_M
+
+    seed_demo(sesion)
+    bases = [(d[1], d[2]) for d in DESTINOS] + [(c["lat"], c["lon"]) for c in COMERCIOS]
+    rng = random.Random(5)
+    for _ in range(150):
+        tick(sesion, redis_test, cfg=SIN_PEDIDOS, rng=rng)
+        for nombre in SIMULADOS:
+            rep = sesion.scalar(select(Courier).join(User).where(User.username == nombre))
+            lat, lon = ubicacion(sesion, rep.id)
+            assert min(distancia_m(lat, lon, *b) for b in bases) <= RADIO_DE_PASEO_M + 60, nombre

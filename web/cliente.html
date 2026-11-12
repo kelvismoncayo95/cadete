@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cliente · Cadete</title>
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="/css/cadete.css">
+</head>
+<body>
+  <div class="aviso-fijo">Datos inventados · demo pública · se reinicia cada noche</div>
+  <main class="contenedor" id="raiz"><div class="esqueleto"></div></main>
+  <nav class="nav-inferior" id="nav" aria-label="Secciones">
+    <a href="#/" data-ruta="comercios">Comercios</a>
+    <a href="#/pedidos" data-ruta="pedidos">Mis pedidos</a>
+  </nav>
+  <script src="/vendor/maplibre-gl.js"></script>
+  <script src="/vendor/pmtiles.js"></script>
+  <script type="module" src="/js/cliente.js"></script>
+</body>
+</html>
