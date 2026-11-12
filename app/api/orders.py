@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 import redis
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -9,7 +10,10 @@ from app.api.deps import requiere_rol, usuario_actual
 from app.core.database import get_db
 from app.core.redis import get_redis
 from app.models import Order, User
+from app.models.order import ESTADOS
 from app.schemas.order import OrderCreateIn, OrderDetailOut, OrderOut
+from app.services.errors import ErrorDeNegocio
+from app.services.order_state import TransicionInvalida, cambiar_estado
 from app.services.orders import crear_pedido, detalle_pedido
 from app.services.permissions import pedidos_visibles
 
@@ -32,8 +36,14 @@ def crear(
 
 
 @router.get("/orders", response_model=list[OrderOut])
-def mis_pedidos(usuario: User = Depends(usuario_actual), db: Session = Depends(get_db)):
+def mis_pedidos(
+    status: Literal[ESTADOS] | None = None,  # type: ignore[valid-type]
+    usuario: User = Depends(usuario_actual),
+    db: Session = Depends(get_db),
+):
     consulta = pedidos_visibles(usuario).order_by(Order.created_at.desc())
+    if status:
+        consulta = consulta.where(Order.status == status)
     return db.scalars(consulta).all()
 
 
@@ -46,4 +56,24 @@ def un_pedido(
     pedido = db.scalar(pedidos_visibles(usuario).where(Order.id == order_id))
     if pedido is None:
         raise HTTPException(404, "No encontramos ese pedido")
+    return detalle_pedido(db, pedido)
+
+
+@router.post("/orders/{order_id}/cancel", response_model=OrderDetailOut)
+def cancelar(
+    order_id: uuid.UUID,
+    usuario: User = Depends(requiere_rol("customer")),
+    db: Session = Depends(get_db),
+):
+    pedido = db.scalar(pedidos_visibles(usuario).where(Order.id == order_id))
+    if pedido is None:
+        raise HTTPException(404, "No encontramos ese pedido")
+    try:
+        cambiar_estado(db, pedido.id, "cancelado", actor_user_id=usuario.id)
+    except TransicionInvalida as error:
+        if error.actual in ("listo", "asignado", "en_camino"):
+            raise ErrorDeNegocio(409, "Tu pedido ya está en preparación y no se puede cancelar")
+        raise ErrorDeNegocio(409, "Este pedido ya no se puede cancelar")
+    db.commit()
+    db.refresh(pedido)
     return detalle_pedido(db, pedido)
