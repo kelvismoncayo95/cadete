@@ -13,6 +13,16 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5433
 
+    redis_url: str = "redis://localhost:6380/0"
+    test_redis_url: str = "redis://localhost:6380/15"
+
+    # Seguridad. El secreto NUNCA va en el código: viene del .env o del entorno.
+    jwt_secret: str = ""
+    jwt_expire_minutes: int = 60
+    bcrypt_rounds: int = 12
+    login_max_intentos: int = 10
+    login_ventana_segundos: int = 60
+
     database_url: str | None = None
     test_database_url: str | None = None
 

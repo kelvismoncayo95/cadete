@@ -1,3 +1,9 @@
+import os
+
+# Valores solo para tests: deben fijarse ANTES de importar la app.
+os.environ.setdefault("JWT_SECRET", "secreto-solo-para-tests-no-usar-en-produccion")
+os.environ.setdefault("BCRYPT_ROUNDS", "4")  # bcrypt rápido en tests
+
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -42,3 +48,35 @@ def sesion(migrada: Engine):
 
     with Session(migrada) as s:
         yield s
+
+
+@pytest.fixture
+def redis_test():
+    """Redis de pruebas (base 15), vacío antes de cada test."""
+    import redis
+
+    r = redis.Redis.from_url(settings.test_redis_url, decode_responses=True)
+    r.flushdb()
+    yield r
+    r.flushdb()
+    r.close()
+
+
+@pytest.fixture
+def cliente(migrada: Engine, redis_test):
+    """Cliente HTTP de pruebas, conectado a la base y al Redis de pruebas."""
+    from fastapi.testclient import TestClient
+    from sqlalchemy.orm import Session
+
+    from app.core.database import get_db
+    from app.core.redis import get_redis
+    from app.main import app
+
+    def db_de_prueba():
+        with Session(migrada, expire_on_commit=False) as s:
+            yield s
+
+    app.dependency_overrides[get_db] = db_de_prueba
+    app.dependency_overrides[get_redis] = lambda: redis_test
+    yield TestClient(app)
+    app.dependency_overrides.clear()

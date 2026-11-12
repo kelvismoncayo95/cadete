@@ -41,6 +41,7 @@ jobs:
       - run: pytest -v
         env:
           TEST_DATABASE_URL: postgresql+psycopg://cadete:ci_password_no_secreta@localhost:5432/cadete_test
+          TEST_REDIS_URL: redis://localhost:6379/15
 
   secretos:
     runs-on: ubuntu-latest
