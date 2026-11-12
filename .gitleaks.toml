@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores públicos de la demo (datos inventados)"
+regexes = ['''demo1234''']

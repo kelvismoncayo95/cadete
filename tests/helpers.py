@@ -39,3 +39,23 @@ def crear_pedido(session: Session, estado: str = "recibido") -> uuid.UUID:
     session.add(pedido)
     session.commit()
     return pedido.id
+
+
+def crear_repartidor(session: Session):
+    from app.models import Courier
+
+    sufijo = uuid.uuid4().hex[:8]
+    usuario = User(username=f"rep_{sufijo}", password_hash="h", display_name="Repartidor", role="courier")
+    session.add(usuario)
+    session.flush()
+    repartidor = Courier(user_id=usuario.id, vehicle="moto")
+    session.add(repartidor)
+    session.commit()
+    return repartidor
+
+
+def cabecera(usuario_id) -> dict[str, str]:
+    """Cabecera Authorization con un token válido para ese usuario."""
+    from app.core.security import crear_token
+
+    return {"Authorization": f"Bearer {crear_token(usuario_id)}"}
