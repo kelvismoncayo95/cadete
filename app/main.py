@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api import auth, catalog, courier, demo, live, merchant, orders
 from app.api.errors import registrar_manejadores_de_error
@@ -18,3 +21,7 @@ app.include_router(orders.router)
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# La web (HTML, CSS, JS, mapa) se sirve desde la misma app. Va al FINAL: las rutas de la API tienen prioridad.
+app.mount("/", StaticFiles(directory=Path(__file__).resolve().parent.parent / "web", html=True), name="web")

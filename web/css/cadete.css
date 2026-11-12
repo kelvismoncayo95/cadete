@@ -1,0 +1,69 @@
+/* Identidad de Cadete: naranja quemado, fondo cálido. Distinta de clínica y minipay. */
+:root {
+  --acento: #C2410C;
+  --acento-texto: #FFFFFF;
+  --fondo: #FAF8F5;
+  --superficie: #FFFFFF;
+  --texto: #1F2421;
+  --texto-suave: #5C625F;
+  --borde: #E6E2DB;
+  --sombra: 0 4px 18px rgba(31, 36, 33, .16);
+  --radio: 16px;
+  --fuente: Manrope, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+:root[data-tema="oscuro"] {
+  --acento: #FB923C;
+  --acento-texto: #1A1D21;
+  --fondo: #14161A;
+  --superficie: #1F2328;
+  --texto: #ECEAE6;
+  --texto-suave: #A3A9AE;
+  --borde: #2E343B;
+  --sombra: 0 4px 18px rgba(0, 0, 0, .5);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font-family: var(--fuente); background: var(--fondo); color: var(--texto); }
+
+/* ----- Marcadores del mapa (todos con texto, no solo color) ----- */
+.marcador { display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: auto; }
+.marcador .icono {
+  width: 36px; height: 36px; display: grid; place-items: center; color: var(--acento-texto);
+  background: var(--acento); border: 3px solid var(--superficie); box-shadow: var(--sombra);
+}
+.marcador .icono svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.marcador .etiqueta {
+  font: 600 11px/1 var(--fuente); padding: 3px 7px; border-radius: 999px; white-space: nowrap;
+  color: var(--texto); background: var(--superficie); box-shadow: var(--sombra);
+}
+.marcador.repartidor .icono { border-radius: 50%; }
+.marcador.comercio .icono { border-radius: 9px; background: var(--superficie); color: var(--acento); border-color: var(--acento); }
+.marcador.destino .icono { border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--texto); color: var(--fondo); }
+.marcador.destino .icono svg { transform: rotate(45deg); }
+.marcador .flecha { position: absolute; top: -9px; width: 0; height: 0; border: 6px solid transparent; border-bottom: 9px solid var(--acento); transform-origin: 6px 27px; }
+
+/* ----- Controles y avisos ----- */
+.aviso-demo {
+  position: fixed; top: 12px; left: 12px; z-index: 5; font: 600 12px/1 var(--fuente);
+  padding: 8px 12px; border-radius: 999px; background: var(--superficie); color: var(--texto-suave); box-shadow: var(--sombra);
+}
+.boton-tema {
+  position: fixed; top: 12px; right: 12px; z-index: 5; min-width: 44px; min-height: 44px; border: 0; cursor: pointer;
+  border-radius: 999px; padding: 0 14px; font: 600 13px var(--fuente); color: var(--texto); background: var(--superficie); box-shadow: var(--sombra);
+}
+.boton-tema:focus-visible, .maplibregl-ctrl button:focus-visible { outline: 3px solid var(--acento); outline-offset: 2px; }
+#mapa { position: fixed; inset: 0; }
+.maplibregl-ctrl-top-right { margin-top: 62px; }   /* debajo del botón de tema */
+.hoja {
+  position: fixed; left: 12px; right: 12px; bottom: 28px; z-index: 5; max-width: 420px; margin: 0 auto;
+  background: var(--superficie); border-radius: var(--radio); box-shadow: var(--sombra); padding: 16px 18px;
+}
+.hoja h1 { margin: 0 0 4px; font-size: 18px; }
+.hoja p { margin: 0; color: var(--texto-suave); font-size: 14px; }
+
+/* La atribución de OpenStreetMap es obligatoria: queda siempre visible, discreta. */
+.maplibregl-ctrl-attrib { font-family: var(--fuente); }
+:root[data-tema="oscuro"] .maplibregl-ctrl-attrib { background: rgba(20, 22, 26, .7); color: var(--texto-suave); }
+:root[data-tema="oscuro"] .maplibregl-ctrl-attrib a { color: var(--texto-suave); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

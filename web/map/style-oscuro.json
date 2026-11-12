@@ -1,0 +1,594 @@
+{
+ "version": 8,
+ "name": "Cadete · oscuro",
+ "glyphs": "__ORIGEN__/map/fonts/{fontstack}/{range}.pbf",
+ "sources": {
+  "montevideo": {
+   "type": "vector",
+   "url": "pmtiles://__ORIGEN__/map/montevideo.pmtiles",
+   "attribution": "<a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">© OpenStreetMap</a>",
+   "minzoom": 0,
+   "maxzoom": 15
+  }
+ },
+ "layers": [
+  {
+   "id": "fondo",
+   "type": "background",
+   "paint": {
+    "background-color": "#1A1D21"
+   }
+  },
+  {
+   "id": "parques",
+   "type": "fill",
+   "source": "montevideo",
+   "source-layer": "landuse",
+   "filter": [
+    "in",
+    [
+     "get",
+     "kind"
+    ],
+    [
+     "literal",
+     [
+      "park",
+      "grass",
+      "forest",
+      "wood",
+      "wetland",
+      "recreation_ground",
+      "pitch",
+      "nature_reserve",
+      "garden"
+     ]
+    ]
+   ],
+   "paint": {
+    "fill-color": "#1E2D27"
+   }
+  },
+  {
+   "id": "arena",
+   "type": "fill",
+   "source": "montevideo",
+   "source-layer": "landuse",
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "beach"
+   ],
+   "paint": {
+    "fill-color": "#252622"
+   }
+  },
+  {
+   "id": "agua",
+   "type": "fill",
+   "source": "montevideo",
+   "source-layer": "water",
+   "filter": [
+    "==",
+    [
+     "geometry-type"
+    ],
+    "Polygon"
+   ],
+   "paint": {
+    "fill-color": "#0F2733"
+   }
+  },
+  {
+   "id": "rios",
+   "type": "line",
+   "source": "montevideo",
+   "source-layer": "water",
+   "filter": [
+    "==",
+    [
+     "geometry-type"
+    ],
+    "LineString"
+   ],
+   "paint": {
+    "line-color": "#0F2733",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     10,
+     0.5,
+     16,
+     3
+    ]
+   }
+  },
+  {
+   "id": "edificios",
+   "type": "fill",
+   "source": "montevideo",
+   "source-layer": "buildings",
+   "minzoom": 14,
+   "paint": {
+    "fill-color": "#22262B",
+    "fill-opacity": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     0,
+     15,
+     1
+    ]
+   }
+  },
+  {
+   "id": "sendas",
+   "type": "line",
+   "source": "montevideo",
+   "source-layer": "roads",
+   "minzoom": 15,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "kind"
+     ],
+     "path"
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "is_tunnel"
+     ],
+     true
+    ]
+   ],
+   "paint": {
+    "line-color": "#1A1D21",
+    "line-width": 1,
+    "line-dasharray": [
+     2,
+     2
+    ]
+   }
+  },
+  {
+   "id": "calles-borde",
+   "type": "line",
+   "source": "montevideo",
+   "source-layer": "roads",
+   "minzoom": 12,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "kind"
+     ],
+     "minor_road"
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "is_tunnel"
+     ],
+     true
+    ]
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#1A1D21",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     12,
+     0.6,
+     15,
+     3.2,
+     18,
+     14
+    ]
+   }
+  },
+  {
+   "id": "calles",
+   "type": "line",
+   "source": "montevideo",
+   "source-layer": "roads",
+   "minzoom": 12,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "kind"
+     ],
+     "minor_road"
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "is_tunnel"
+     ],
+     true
+    ]
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#2C3138",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     12,
+     0.3,
+     15,
+     2.2,
+     18,
+     12
+    ]
+   }
+  },
+  {
+   "id": "avenidas-borde",
+   "type": "line",
+   "source": "montevideo",
+   "source-layer": "roads",
+   "minzoom": 7,
+   "filter": [
+    "all",
+    [
+     "in",
+     [
+      "get",
+      "kind"
+     ],
+     [
+      "literal",
+      [
+       "major_road",
+       "medium_road",
+       "highway"
+      ]
+     ]
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "is_tunnel"
+     ],
+     true
+    ]
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#1A1D21",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     7,
+     0.4,
+     12,
+     1.6,
+     15,
+     5.5,
+     18,
+     22
+    ]
+   }
+  },
+  {
+   "id": "avenidas",
+   "type": "line",
+   "source": "montevideo",
+   "source-layer": "roads",
+   "minzoom": 7,
+   "filter": [
+    "all",
+    [
+     "in",
+     [
+      "get",
+      "kind"
+     ],
+     [
+      "literal",
+      [
+       "major_road",
+       "medium_road",
+       "highway"
+      ]
+     ]
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "is_tunnel"
+     ],
+     true
+    ]
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#383F48",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     7,
+     0.25,
+     12,
+     1.1,
+     15,
+     4,
+     18,
+     19
+    ]
+   }
+  },
+  {
+   "id": "etiqueta-agua",
+   "type": "symbol",
+   "source": "montevideo",
+   "source-layer": "water",
+   "minzoom": 8,
+   "filter": [
+    "all",
+    [
+     "has",
+     "name"
+    ],
+    [
+     "in",
+     [
+      "get",
+      "kind"
+     ],
+     [
+      "literal",
+      [
+       "ocean",
+       "sea",
+       "bay",
+       "lake"
+      ]
+     ]
+    ]
+   ],
+   "layout": {
+    "text-field": [
+     "coalesce",
+     [
+      "get",
+      "name:es"
+     ],
+     [
+      "get",
+      "name"
+     ]
+    ],
+    "text-font": [
+     "Noto Sans Italic"
+    ],
+    "text-size": 13,
+    "text-letter-spacing": 0.15
+   },
+   "paint": {
+    "text-color": "#5C8AA0",
+    "text-halo-color": "#0F2733",
+    "text-halo-width": 1
+   }
+  },
+  {
+   "id": "etiqueta-calles",
+   "type": "symbol",
+   "source": "montevideo",
+   "source-layer": "roads",
+   "minzoom": 14,
+   "filter": [
+    "all",
+    [
+     "has",
+     "name"
+    ],
+    [
+     "in",
+     [
+      "get",
+      "kind"
+     ],
+     [
+      "literal",
+      [
+       "major_road",
+       "highway"
+      ]
+     ]
+    ]
+   ],
+   "layout": {
+    "symbol-placement": "line",
+    "text-field": [
+     "coalesce",
+     [
+      "get",
+      "name:es"
+     ],
+     [
+      "get",
+      "name"
+     ]
+    ],
+    "text-font": [
+     "Noto Sans Regular"
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     10,
+     18,
+     13
+    ]
+   },
+   "paint": {
+    "text-color": "#B2B8BD",
+    "text-halo-color": "#1A1D21",
+    "text-halo-width": 1.5
+   }
+  },
+  {
+   "id": "etiqueta-barrios",
+   "type": "symbol",
+   "source": "montevideo",
+   "source-layer": "places",
+   "minzoom": 12,
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "neighbourhood"
+   ],
+   "layout": {
+    "text-field": [
+     "upcase",
+     [
+      "coalesce",
+      [
+       "get",
+       "name:es"
+      ],
+      [
+       "get",
+       "name"
+      ]
+     ]
+    ],
+    "text-font": [
+     "Noto Sans Medium"
+    ],
+    "text-size": 10.5,
+    "text-letter-spacing": 0.12,
+    "text-max-width": 7
+   },
+   "paint": {
+    "text-color": "#7C848B",
+    "text-halo-color": "#1A1D21",
+    "text-halo-width": 1.5
+   }
+  },
+  {
+   "id": "etiqueta-ciudades",
+   "type": "symbol",
+   "source": "montevideo",
+   "source-layer": "places",
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "locality"
+   ],
+   "layout": {
+    "text-field": [
+     "coalesce",
+     [
+      "get",
+      "name:es"
+     ],
+     [
+      "get",
+      "name"
+     ]
+    ],
+    "text-font": [
+     "Noto Sans Medium"
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     6,
+     11,
+     12,
+     17
+    ],
+    "text-max-width": 8
+   },
+   "paint": {
+    "text-color": "#B2B8BD",
+    "text-halo-color": "#1A1D21",
+    "text-halo-width": 2
+   }
+  }
+ ]
+}

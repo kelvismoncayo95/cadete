@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mapa · Cadete</title>
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="/css/cadete.css">
+</head>
+<body>
+  <div id="mapa" aria-label="Mapa de Montevideo"></div>
+  <div class="aviso-demo">Datos inventados · demo pública</div>
+  <button class="boton-tema" id="tema" type="button">Tema oscuro</button>
+  <section class="hoja" aria-live="polite">
+    <h1>Tu pedido va en camino</h1>
+    <p id="eta">Llega en unos 6 minutos (estimación)</p>
+  </section>
+  <script src="/vendor/maplibre-gl.js"></script>
+  <script src="/vendor/pmtiles.js"></script>
+  <script type="module">
+    import { crearMapa, cambiarTema, encuadrar, ponerRepartidor, ponerComercio, ponerDestino, moverSuave, dibujarRuta, temaDelSistema } from "/js/mapa.js";
+
+    // Demo: del comercio (Pocitos) a una casa en el Cordón; en línea recta, sin calles.
+    const comercio = [-56.1500, -34.9100];
+    const casa = [-56.1790, -34.9040];
+    const ruta = Array.from({ length: 41 }, (_, i) => [comercio[0] + (casa[0] - comercio[0]) * i / 40, comercio[1] + (casa[1] - comercio[1]) * i / 40]);
+
+    let repartidor;
+    const mapa = await crearMapa("mapa", {
+      centro: [-56.165, -34.907], zoom: 14.2,
+      alCargar: (m) => dibujarRuta(m, ruta),
+    });
+    window.cadeteMapa = mapa;   // para pruebas y capturas
+    encuadrar(mapa, [comercio, casa]);
+    ponerComercio(mapa, comercio, "Pizzería La Rambla (demo)");
+    ponerDestino(mapa, casa, "Tu casa");
+    repartidor = ponerRepartidor(mapa, ruta[12], "Luis");
+
+    let i = 12;
+    setInterval(() => { i = (i + 1) % ruta.length; moverSuave(repartidor, ruta[i], 900); }, 1000);
+
+    const boton = document.getElementById("tema");
+    const etiquetar = () => { boton.textContent = mapa.temaActual === "claro" ? "Tema oscuro" : "Tema claro"; };
+    boton.addEventListener("click", async () => { await cambiarTema(mapa, mapa.temaActual === "claro" ? "oscuro" : "claro"); etiquetar(); });
+    etiquetar();
+  </script>
+</body>
+</html>

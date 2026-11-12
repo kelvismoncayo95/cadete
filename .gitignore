@@ -37,3 +37,6 @@ docs/CODIGO.md
 docs/ESTUDIO.md
 docs/estudio/
 docs/ESTUDIO_*.pdf
+
+# Herramienta de mapas descargada (se baja con map/extraer.sh)
+map/bin/
