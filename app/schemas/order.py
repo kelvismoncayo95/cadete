@@ -40,3 +40,7 @@ class ItemOut(BaseModel):
 
 class OrderDetailOut(OrderOut):
     items: list[ItemOut]
+
+
+class RechazoIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=200)

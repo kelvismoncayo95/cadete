@@ -32,14 +32,34 @@ def base_vacia(engine: Engine) -> Engine:
 
 
 @pytest.fixture
-def migrada(base_vacia: Engine) -> Engine:
-    """Base de pruebas vacía y ya migrada a la última versión."""
-    from alembic import command
+def migrada(engine: Engine) -> Engine:
+    """Base de pruebas migrada a la última versión y SIN datos.
 
+    Si ya está migrada, solo se vacían las tablas (mucho más rápido que recrear todo).
+    """
+    from alembic import command
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import inspect
+
+    from app.models import Base
     from tests.helpers import alembic_cfg
 
+    tablas = [t.name for t in Base.metadata.sorted_tables]
+    with engine.connect() as con:
+        actual = MigrationContext.configure(con).get_current_revision()
+    ultima = ScriptDirectory.from_config(alembic_cfg()).get_current_head()
+    if actual == ultima and set(tablas) <= set(inspect(engine).get_table_names()):
+        with engine.begin() as con:
+            con.execute(text(f"TRUNCATE {', '.join(tablas)} RESTART IDENTITY CASCADE"))
+        return engine
+
+    with engine.begin() as con:
+        con.execute(text("DROP SCHEMA public CASCADE"))
+        con.execute(text("CREATE SCHEMA public"))
+        con.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
     command.upgrade(alembic_cfg(), "head")
-    return base_vacia
+    return engine
 
 
 @pytest.fixture
