@@ -3,6 +3,8 @@ import logging
 import time
 
 from app.core.database import SessionLocal
+from app.core.observability import configurar_logs
+from app.services.heartbeat import latir
 from app.core.redis import get_redis
 from app.simulator.engine import Config, tick
 
@@ -10,7 +12,7 @@ log = logging.getLogger("cadete.simulador")
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    configurar_logs()
     cfg = Config()
     r = get_redis()
     log.info("simulador iniciado")
@@ -18,6 +20,7 @@ def main() -> None:
         try:
             with SessionLocal() as db:
                 resumen = tick(db, r, cfg=cfg)
+            latir(r, "simulador")
             if any(resumen.values()):
                 log.info("%s", resumen)
         except Exception:  # noqa: BLE001 - el simulador no debe caerse por un error puntual

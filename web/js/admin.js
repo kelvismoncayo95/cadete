@@ -1,4 +1,4 @@
-import { suscribir } from "/js/api.js";
+import { api, suscribir } from "/js/api.js";
 import { $, el, toast, barraSuperior, temaActual } from "/js/ui.js";
 import { exigirRol } from "/js/api.js";
 import { crearMapa, ponerRepartidor, moverSuave } from "/js/mapa.js";
@@ -78,7 +78,14 @@ suscribir("/admin/live", {
   },
 }, (ok) => { conectado = ok; pintarPanel(); });
 
-async function revisarSistema() { try { const r = await fetch("/health"); vistoSistema = r.ok ? "Sano" : "Con problemas"; } catch { vistoSistema = "Sin conexión"; } pintarPanel(); }
+async function revisarSistema() {
+  try {
+    const d = await api("/admin/system");
+    vistoSistema = { ok: "Sano", degradado: "Degradado", caido: "Caído" }[d.status] ?? d.status;
+    if (d.alertas.pedidos_sin_repartidor) vistoSistema += ` · ${d.alertas.pedidos_sin_repartidor} sin repartidor`;
+  } catch { vistoSistema = "Sin conexión"; }
+  pintarPanel();
+}
 await revisarSistema();
 setInterval(revisarSistema, 10000);
 pintarPanel();

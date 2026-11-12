@@ -16,7 +16,10 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.observability import configurar_logs
+from app.core.redis import get_redis
 from app.services.couriers import purgar_posiciones_antiguas
+from app.services.heartbeat import latir
 from app.services.dispatch import avisar_pedidos_sin_repartidor, expirar_ofertas, reintentar_despachos
 
 log = logging.getLogger("cadete.worker")
@@ -26,8 +29,10 @@ REINTENTO_CADA_VUELTAS = 6      # 6 vueltas de 5 s = 30 s
 PURGA_CADA_VUELTAS = 720        # 720 vueltas de 5 s = 1 hora
 
 
-def ciclo(db: Session, ahora: datetime | None = None, completo: bool = False) -> dict[str, int]:
+def ciclo(db: Session, ahora: datetime | None = None, completo: bool = False, r=None) -> dict[str, int]:
     resultado = {"expiradas": expirar_ofertas(db, ahora)}
+    if r is not None:
+        latir(r, "worker")   # «sigo vivo»: el panel del admin lo mira
     if completo:
         resultado["ofrecidas"] = reintentar_despachos(db, ahora)
         resultado["avisos"] = avisar_pedidos_sin_repartidor(db, ahora)
@@ -35,14 +40,15 @@ def ciclo(db: Session, ahora: datetime | None = None, completo: bool = False) ->
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    configurar_logs()
+    r = get_redis()
     log.info("trabajador iniciado")
     vuelta = 0
     while True:
         vuelta += 1
         try:
             with SessionLocal() as db:
-                resultado = ciclo(db, completo=vuelta % REINTENTO_CADA_VUELTAS == 0)
+                resultado = ciclo(db, completo=vuelta % REINTENTO_CADA_VUELTAS == 0, r=r)
                 if vuelta % PURGA_CADA_VUELTAS == 0:
                     resultado["posiciones_borradas"] = purgar_posiciones_antiguas(db)
             if any(resultado.values()):
