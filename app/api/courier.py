@@ -17,6 +17,7 @@ from app.schemas.order import OrderDetailOut
 from app.services.couriers import actualizar_posicion
 from app.services.dispatch import responder_oferta
 from app.services.errors import ErrorDeNegocio
+from app.services.events import publicar_estado, publicar_posicion
 from app.services.order_state import cambiar_estado
 from app.services.orders import detalle_pedido
 from app.services.permissions import pedidos_visibles
@@ -47,7 +48,9 @@ def enviar_posicion(
     db: Session = Depends(get_db),
     r: redis.Redis = Depends(get_redis),
 ) -> Response:
-    actualizar_posicion(db, r, _mi_repartidor(db, usuario), datos.lat, datos.lon)
+    repartidor = _mi_repartidor(db, usuario)
+    actualizar_posicion(db, r, repartidor, datos.lat, datos.lon)
+    publicar_posicion(db, r, repartidor, datos.lat, datos.lon)
     return Response(status_code=204)
 
 
@@ -93,9 +96,13 @@ def mis_ofertas(usuario: User = Depends(requiere_rol("courier")), db: Session = 
 
 @router.post("/offers/{offer_id}/accept", response_model=OrderDetailOut)
 def aceptar_oferta(
-    offer_id: uuid.UUID, usuario: User = Depends(requiere_rol("courier")), db: Session = Depends(get_db)
+    offer_id: uuid.UUID,
+    usuario: User = Depends(requiere_rol("courier")),
+    db: Session = Depends(get_db),
+    r: redis.Redis = Depends(get_redis),
 ):
     oferta = responder_oferta(db, offer_id, usuario.id, aceptar=True)
+    publicar_estado(db, r, oferta.order_id)
     return detalle_pedido(db, db.get(Order, oferta.order_id))
 
 
@@ -116,22 +123,30 @@ def _mi_pedido(db: Session, usuario: User, order_id: uuid.UUID) -> Order:
 
 @router.post("/orders/{order_id}/picked-up", response_model=OrderDetailOut)
 def retire_el_pedido(
-    order_id: uuid.UUID, usuario: User = Depends(requiere_rol("courier")), db: Session = Depends(get_db)
+    order_id: uuid.UUID,
+    usuario: User = Depends(requiere_rol("courier")),
+    db: Session = Depends(get_db),
+    r: redis.Redis = Depends(get_redis),
 ):
     pedido = _mi_pedido(db, usuario, order_id)
     cambiar_estado(db, pedido.id, "en_camino", actor_user_id=usuario.id)
     db.commit()
+    publicar_estado(db, r, pedido.id)
     db.refresh(pedido)
     return detalle_pedido(db, pedido)
 
 
 @router.post("/orders/{order_id}/delivered", response_model=OrderDetailOut)
 def entregue_el_pedido(
-    order_id: uuid.UUID, usuario: User = Depends(requiere_rol("courier")), db: Session = Depends(get_db)
+    order_id: uuid.UUID,
+    usuario: User = Depends(requiere_rol("courier")),
+    db: Session = Depends(get_db),
+    r: redis.Redis = Depends(get_redis),
 ):
     pedido = _mi_pedido(db, usuario, order_id)
     cambiar_estado(db, pedido.id, "entregado", actor_user_id=usuario.id)
     _mi_repartidor(db, usuario).status = "available"  # queda libre para el próximo pedido
     db.commit()
+    publicar_estado(db, r, pedido.id)
     db.refresh(pedido)
     return detalle_pedido(db, pedido)

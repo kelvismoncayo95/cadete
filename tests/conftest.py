@@ -93,7 +93,9 @@ def cliente(migrada: Engine, redis_test):
     from sqlalchemy.orm import Session
 
     from app.core.database import get_db
-    from app.core.redis import get_redis
+    import redis.asyncio as redis_async
+
+    from app.core.redis import get_redis, get_redis_async
     from app.main import app
 
     def db_de_prueba():
@@ -102,5 +104,44 @@ def cliente(migrada: Engine, redis_test):
 
     app.dependency_overrides[get_db] = db_de_prueba
     app.dependency_overrides[get_redis] = lambda: redis_test
+
+    async def redis_async_de_prueba():
+        c = redis_async.Redis.from_url(settings.test_redis_url, decode_responses=True)
+        try:
+            yield c
+        finally:
+            await c.aclose()
+
+    app.dependency_overrides[get_redis_async] = redis_async_de_prueba
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def servidor(cliente):
+    """Servidor uvicorn REAL en un hilo (el TestClient no hace streaming de verdad).
+
+    Usa la misma app, así que mantiene los overrides de la base y de Redis de `cliente`.
+    """
+    import socket
+    import threading
+    import time
+
+    import uvicorn
+
+    from app.main import app
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        puerto = s.getsockname()[1]
+    config = uvicorn.Config(app, host="127.0.0.1", port=puerto, log_level="warning", timeout_graceful_shutdown=1)
+    server = uvicorn.Server(config)
+    hilo = threading.Thread(target=server.run, daemon=True)
+    hilo.start()
+    for _ in range(100):
+        if server.started:
+            break
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{puerto}"
+    server.should_exit = True
+    hilo.join(5)

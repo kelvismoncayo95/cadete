@@ -13,6 +13,7 @@ from app.models import Order, User
 from app.models.order import ESTADOS
 from app.schemas.order import OrderCreateIn, OrderDetailOut, OrderOut
 from app.services.errors import ErrorDeNegocio
+from app.services.events import publicar_estado
 from app.services.order_state import TransicionInvalida, cambiar_estado
 from app.services.orders import crear_pedido, detalle_pedido
 from app.services.permissions import pedidos_visibles
@@ -29,6 +30,8 @@ def crear(
     r: redis.Redis = Depends(get_redis),
 ):
     estado, cuerpo, repetido = crear_pedido(db, r, usuario, datos, idempotency_key)
+    if not repetido:
+        publicar_estado(db, r, uuid.UUID(cuerpo["id"]))
     respuesta = JSONResponse(status_code=estado, content=cuerpo)
     if repetido:
         respuesta.headers["Idempotent-Replay"] = "true"
@@ -64,6 +67,7 @@ def cancelar(
     order_id: uuid.UUID,
     usuario: User = Depends(requiere_rol("customer")),
     db: Session = Depends(get_db),
+    r: redis.Redis = Depends(get_redis),
 ):
     pedido = db.scalar(pedidos_visibles(usuario).where(Order.id == order_id))
     if pedido is None:
@@ -75,5 +79,6 @@ def cancelar(
             raise ErrorDeNegocio(409, "Tu pedido ya está en preparación y no se puede cancelar")
         raise ErrorDeNegocio(409, "Este pedido ya no se puede cancelar")
     db.commit()
+    publicar_estado(db, r, pedido.id)
     db.refresh(pedido)
     return detalle_pedido(db, pedido)
