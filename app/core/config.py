@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     max_ofertas_por_pedido: int = 5
     aviso_sin_repartidor_minutos: int = 10
 
+    # Tiempo estimado (línea recta a velocidad fija: es una estimación, y así se le dice al cliente)
+    velocidad_estimada_kmh: float = 20.0
+
     database_url: str | None = None
     test_database_url: str | None = None
 

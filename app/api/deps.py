@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Callable
 
 import jwt
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -17,14 +17,11 @@ def _no_autenticado(mensaje: str) -> HTTPException:
     return HTTPException(401, mensaje, headers={"WWW-Authenticate": "Bearer"})
 
 
-def usuario_actual(
-    credenciales: HTTPAuthorizationCredentials | None = Depends(bearer),
-    db: Session = Depends(get_db),
-) -> User:
-    if credenciales is None:
+def _usuario_desde_token(token: str | None, db: Session) -> User:
+    if not token:
         raise _no_autenticado("Necesitás iniciar sesión")
     try:
-        datos = decodificar_token(credenciales.credentials)
+        datos = decodificar_token(token)
         usuario_id = uuid.UUID(datos["sub"])
     except jwt.ExpiredSignatureError:
         raise _no_autenticado("Tu sesión venció")
@@ -37,8 +34,27 @@ def usuario_actual(
     return usuario
 
 
-def requiere_rol(*roles: str) -> Callable[[User], User]:
-    def comprobar(usuario: User = Depends(usuario_actual)) -> User:
+def usuario_actual(
+    credenciales: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
+) -> User:
+    return _usuario_desde_token(credenciales.credentials if credenciales else None, db)
+
+
+def usuario_del_stream(
+    credenciales: HTTPAuthorizationCredentials | None = Depends(bearer),
+    token: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Para los streams en vivo. El navegador (EventSource) no puede mandar cabeceras,
+    así que además de la cabecera Authorization se acepta ?token=. Solo se usa en estos endpoints."""
+    return _usuario_desde_token(credenciales.credentials if credenciales else token, db)
+
+
+def requiere_rol(*roles: str, stream: bool = False) -> Callable[[User], User]:
+    origen = usuario_del_stream if stream else usuario_actual
+
+    def comprobar(usuario: User = Depends(origen)) -> User:
         if usuario.role not in roles:
             raise HTTPException(403, "No tenés permiso para hacer esto")
         return usuario
