@@ -8,7 +8,7 @@ Ordering and delivery platform for Montevideo, Uruguay. A customer orders from a
 
 ## Status
 
-Work in progress. Step 0 done (repo and environment).
+Work in progress. Steps 0-1 done (repo, environment, Docker Compose with PostGIS and Redis, `/health`).
 
 ## Planned stack
 
@@ -17,6 +17,14 @@ Python 3.12 · FastAPI · PostgreSQL 17 + PostGIS · Redis · SSE for live track
 ## Design documents
 
 See [`docs/`](docs/): PRD, TRD, App Flow, UX/UI, Backend Schema and the step-by-step Plan (written in Spanish).
+
+## Run with Docker
+
+```bash
+cp .env.example .env   # then set POSTGRES_PASSWORD
+docker compose up -d --build
+curl http://localhost:8001/health   # {"status":"ok"}
+```
 
 ## Run the tests
 
