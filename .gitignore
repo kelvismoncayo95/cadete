@@ -1,0 +1,39 @@
+# Python virtual environment
+venv/
+.venv/
+
+# Secrets (NEVER commit)
+.env
+.env.local
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Terraform (state can contain secrets)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Private project documents (do NOT commit)
+docs/ESTADO_PROYECTO.md
+docs/DIARIO.md
+docs/CODIGO.md
+docs/ESTUDIO.md
+docs/estudio/
+docs/ESTUDIO_*.pdf
