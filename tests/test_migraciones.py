@@ -1,28 +1,15 @@
 import pytest
 from alembic import command
-from alembic.config import Config
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from app.core.config import settings
+from tests.helpers import alembic_cfg
 
 TABLAS = {
     "users", "merchants", "products", "couriers", "orders", "order_items",
     "order_events", "dispatch_offers", "courier_positions", "idempotency_keys",
     "audit_log",
 }
-
-
-def alembic_cfg() -> Config:
-    cfg = Config("alembic.ini")
-    cfg.set_main_option("sqlalchemy.url", settings.test_db_url.replace("%", "%%"))
-    return cfg
-
-
-@pytest.fixture
-def migrada(base_vacia):
-    command.upgrade(alembic_cfg(), "head")
-    return base_vacia
 
 
 def test_upgrade_crea_todas_las_tablas(base_vacia):

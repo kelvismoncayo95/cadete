@@ -23,3 +23,22 @@ def base_vacia(engine: Engine) -> Engine:
         con.execute(text("CREATE SCHEMA public"))
         con.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
     return engine
+
+
+@pytest.fixture
+def migrada(base_vacia: Engine) -> Engine:
+    """Base de pruebas vacía y ya migrada a la última versión."""
+    from alembic import command
+
+    from tests.helpers import alembic_cfg
+
+    command.upgrade(alembic_cfg(), "head")
+    return base_vacia
+
+
+@pytest.fixture
+def sesion(migrada: Engine):
+    from sqlalchemy.orm import Session
+
+    with Session(migrada) as s:
+        yield s
