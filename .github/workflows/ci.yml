@@ -39,6 +39,8 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - run: pytest -v
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://cadete:ci_password_no_secreta@localhost:5432/cadete_test
 
   secretos:
     runs-on: ubuntu-latest
