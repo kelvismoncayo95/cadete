@@ -131,6 +131,8 @@ def main() -> int:
     a.add_argument("--antes", default="", help="JS que corre en cada documento nuevo, ANTES de los scripts de la página (p. ej. guardar la sesión)")
     a.add_argument("--tras", default="", help="JS a ejecutar una vez cargada la página")
     a.add_argument("--timeout", type=float, default=40)
+    a.add_argument("--pdf", action="store_true", help="en vez de una captura, imprime la página a PDF (A4)")
+    a.add_argument("--sin-pie", action="store_true", help="PDF sin pie de página ni márgenes (para portadas)")
     a.add_argument("--puerto", type=int, default=0, help="puerto de depuración (0 = uno al azar)")
     a.add_argument("--gracia", type=float, default=1.0, help="segundos extra antes de la foto")
     args = a.parse_args()
@@ -178,6 +180,18 @@ def main() -> int:
                 break
             time.sleep(0.5)
         time.sleep(args.gracia)
+        if args.pdf:
+            pie = ("<div style='width:100%;font:8px Arial,sans-serif;color:#8A8E90;padding:0 16mm;display:flex;"
+                   "justify-content:space-between'><span>Cadete · Guía de estudio</span>"
+                   "<span><span class='pageNumber'></span> / <span class='totalPages'></span></span></div>")
+            m = 0 if args.sin_pie else 0.65
+            datos = cdp.llamar("Page.printToPDF", printBackground=True, preferCSSPageSize=True, generateDocumentOutline=True,
+                               displayHeaderFooter=not args.sin_pie, headerTemplate="<span></span>", footerTemplate=pie,
+                               marginTop=m, marginBottom=0 if args.sin_pie else 0.75, marginLeft=m, marginRight=m)["data"]
+            with open(args.salida, "wb") as f:
+                f.write(base64.b64decode(datos))
+            print(f"PDF guardado: {args.salida} (condición cumplida: {listo})")
+            return 0 if listo else 1
         foto = cdp.llamar("Page.captureScreenshot", format="png")["data"]
         with open(args.salida, "wb") as f:
             f.write(base64.b64decode(foto))
