@@ -98,3 +98,12 @@ def cuerpo_pedido(comercio, items, lat=-34.90, lon=-56.16) -> dict:
         "delivery_lat": lat,
         "delivery_lon": lon,
     }
+
+
+def repartidor_en(session: Session, lat: float, lon: float, estado: str = "available"):
+    """Repartidor de juguete en una posición conocida."""
+    repartidor = crear_repartidor(session)
+    repartidor.last_location = punto(lon, lat)
+    repartidor.status = estado
+    session.commit()
+    return repartidor
