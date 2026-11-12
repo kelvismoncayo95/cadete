@@ -5,7 +5,8 @@ from typing import Literal
 import redis
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from geoalchemy2 import Geometry
+from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import requiere_rol
@@ -52,6 +53,17 @@ def enviar_posicion(
     actualizar_posicion(db, r, repartidor, datos.lat, datos.lon)
     publicar_posicion(db, r, repartidor, datos.lat, datos.lon)
     return Response(status_code=204)
+
+
+@router.get("/status")
+def mi_estado(usuario: User = Depends(requiere_rol("courier")), db: Session = Depends(get_db)):
+    """Mi estado y mi última posición (la pantalla del repartidor la dibuja al abrirse)."""
+    repartidor = _mi_repartidor(db, usuario)
+    geometria = cast(Courier.last_location, Geometry)
+    lat, lon = db.execute(
+        select(func.ST_Y(geometria), func.ST_X(geometria)).where(Courier.id == repartidor.id)
+    ).one()
+    return {"status": repartidor.status, "lat": lat, "lon": lon}
 
 
 @router.post("/status")

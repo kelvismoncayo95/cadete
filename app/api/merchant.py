@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import requiere_rol
 from app.core.database import get_db
 from app.core.redis import get_redis
-from app.models import Order, User
+from app.models import AuditLog, Order, User
 from app.schemas.order import OrderDetailOut, RechazoIn
 from app.services.dispatch import despachar_pedido
 from app.services.events import publicar_estado
@@ -61,3 +61,15 @@ def listo(order_id: uuid.UUID, usuario: User = Depends(requiere_rol("merchant"))
     despachar_pedido(db, order_id)  # busca al repartidor enseguida; el trabajador reintenta si no hay
     db.commit()
     return resultado
+
+
+@router.get("/alerts")
+def alertas(usuario: User = Depends(requiere_rol("merchant")), db: Session = Depends(get_db)):
+    """Pedidos listos que llevan 10 minutos o más sin repartidor (el trabajador deja el aviso)."""
+    ids = db.scalars(
+        pedidos_visibles(usuario).where(Order.status == "listo").with_only_columns(Order.id)
+    ).all()
+    avisados = set(db.scalars(
+        select(AuditLog.entity_id).where(AuditLog.action == "sin_repartidor", AuditLog.entity_id.in_([str(i) for i in ids]))
+    ))
+    return [{"order_id": str(i), "type": "sin_repartidor"} for i in ids if str(i) in avisados]

@@ -128,6 +128,7 @@ def main() -> int:
     a.add_argument("--oscuro", action="store_true", help="emula prefers-color-scheme: dark")
     a.add_argument("--movil", action="store_true", help="emula un teléfono (táctil)")
     a.add_argument("--espera", default="true", help="JS que debe dar true para sacar la foto")
+    a.add_argument("--antes", default="", help="JS que corre en cada documento nuevo, ANTES de los scripts de la página (p. ej. guardar la sesión)")
     a.add_argument("--tras", default="", help="JS a ejecutar una vez cargada la página")
     a.add_argument("--timeout", type=float, default=40)
     a.add_argument("--puerto", type=int, default=0, help="puerto de depuración (0 = uno al azar)")
@@ -161,6 +162,8 @@ def main() -> int:
             cdp.llamar("Emulation.setTouchEmulationEnabled", enabled=True)
         if args.oscuro:
             cdp.llamar("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "dark"}])
+        if args.antes:
+            cdp.llamar("Page.addScriptToEvaluateOnNewDocument", source=args.antes)
         cdp.llamar("Page.navigate", url=args.url)
         cdp.esperar_evento("Page.loadEventFired", 30)
         if args.tras:

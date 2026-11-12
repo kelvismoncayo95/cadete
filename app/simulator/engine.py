@@ -21,16 +21,18 @@ from sqlalchemy.orm import Session
 
 from app.core.zone import dentro_de_montevideo
 from app.models import Courier, DispatchOffer, Merchant, Order, OrderEvent, User
+from app.seed import SIMULADOS
 from app.services.couriers import actualizar_posicion
-from app.services.demo import MARCA, crear_pedido_simulado
+from app.services.demo import DESTINOS, MARCA, crear_pedido_simulado
 from app.services.dispatch import despachar_pedido, responder_oferta
 from app.services.errors import ErrorDeNegocio
 from app.services.events import EN_CURSO, TERMINALES, publicar_estado, publicar_posicion
 from app.services.geo import distancia_m, mover_hacia
 from app.services.order_state import cambiar_estado
 
-REPARTIDORES_DE_LA_DEMO = ("luis", "marta", "diego")
+REPARTIDORES_DE_LA_DEMO = SIMULADOS
 CLIENTES_DE_LA_DEMO = ("ana", "pedro")
+RADIO_DE_PASEO_M = 150.0           # los repartidores libres no se alejan más de esto de un punto en tierra
 SIGUIENTE_DEL_COMERCIO = {"recibido": "aceptado", "aceptado": "preparando", "preparando": "listo"}
 
 
@@ -72,21 +74,35 @@ def _repartidores(db: Session) -> list[Courier]:
     ))
 
 
-def _inicializar(db, r, rep: Courier, rng: random.Random) -> None:
-    """Primera vez: aparece cerca de algún comercio y queda disponible."""
+def _bases(db: Session) -> list[tuple[float, float]]:
+    """Puntos en TIERRA FIRME alrededor de los cuales se mueven los repartidores libres: los comercios
+    y los barrios de la lista de destinos (verificados con `map/verificar_destinos.py`)."""
     comercios = db.execute(text("SELECT ST_Y(location::geometry), ST_X(location::geometry) FROM merchants ORDER BY id")).all()
-    lat, lon = rng.choice(comercios) if comercios else (-34.905, -56.17)
-    lat, lon = lat + rng.uniform(-0.003, 0.003), lon + rng.uniform(-0.003, 0.003)
+    return [(d[1], d[2]) for d in DESTINOS] + [(c[0], c[1]) for c in comercios]
+
+
+def _inicializar(db, r, rep: Courier, rng: random.Random) -> None:
+    """Primera vez: aparece pegado a algún punto en tierra y queda disponible."""
+    lat, lon = rng.choice(_bases(db))
+    lat, lon = lat + rng.uniform(-0.0004, 0.0004), lon + rng.uniform(-0.0004, 0.0004)
     actualizar_posicion(db, r, rep, lat, lon)
     publicar_posicion(db, r, rep, lat, lon)
 
 
 def _pasear(db, r, rep: Courier, cfg: Config, rng: random.Random) -> None:
+    """Un paso corto al azar, pero siempre cerca de un punto en tierra: si se alejó, vuelve hacia él.
+    (Antes se paseaban libremente y a veces terminaban en el río.)"""
     lat, lon = _coords(db, "last_location", "couriers", rep.id)
     paso = cfg.velocidad_ms * cfg.tick_s * 0.3
-    angulo = rng.uniform(0, 2 * math.pi)
-    nueva = (lat + paso * math.cos(angulo) / 111_200, lon + paso * math.sin(angulo) / (111_200 * math.cos(math.radians(lat))))
-    if dentro_de_montevideo(*nueva):
+    base = min(_bases(db), key=lambda b: distancia_m(lat, lon, *b))
+    if distancia_m(lat, lon, *base) > RADIO_DE_PASEO_M:
+        nueva = mover_hacia(lat, lon, *base, paso)
+    else:
+        angulo = rng.uniform(0, 2 * math.pi)
+        nueva = (lat + paso * math.cos(angulo) / 111_200, lon + paso * math.sin(angulo) / (111_200 * math.cos(math.radians(lat))))
+        if distancia_m(*nueva, *base) > RADIO_DE_PASEO_M:
+            nueva = (lat, lon)   # ese paso lo sacaba del radio: se queda donde está
+    if dentro_de_montevideo(*nueva) and nueva != (lat, lon):
         actualizar_posicion(db, r, rep, *nueva)
         publicar_posicion(db, r, rep, *nueva)
 
