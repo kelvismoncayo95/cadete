@@ -59,3 +59,42 @@ def cabecera(usuario_id) -> dict[str, str]:
     from app.core.security import crear_token
 
     return {"Authorization": f"Bearer {crear_token(usuario_id)}"}
+
+
+def crear_cliente(session: Session) -> User:
+    usuario = User(
+        username=f"cli_{uuid.uuid4().hex[:8]}", password_hash="h", display_name="Cliente", role="customer"
+    )
+    session.add(usuario)
+    session.commit()
+    return usuario
+
+
+def crear_comercio(session: Session, abierto: bool = True, productos=(("Pizza", 15000), ("Bebida", 5000))):
+    """Comercio de juguete con productos. Devuelve (comercio, [productos])."""
+    from app.models import Product
+
+    sufijo = uuid.uuid4().hex[:8]
+    dueno = User(username=f"com_{sufijo}", password_hash="h", display_name="Dueño", role="merchant")
+    session.add(dueno)
+    session.flush()
+    comercio = Merchant(
+        user_id=dueno.id, name=f"Comercio {sufijo} (demo)", category="comida",
+        address="Calle 1", location=punto(-56.15, -34.90), is_open=abierto,
+    )
+    session.add(comercio)
+    session.flush()
+    lista = [Product(merchant_id=comercio.id, name=n, price_cents=p) for n, p in productos]
+    session.add_all(lista)
+    session.commit()
+    return comercio, lista
+
+
+def cuerpo_pedido(comercio, items, lat=-34.90, lon=-56.16) -> dict:
+    return {
+        "merchant_id": str(comercio.id),
+        "items": [{"product_id": str(p.id), "quantity": q} for p, q in items],
+        "delivery_address": "Calle 2 123",
+        "delivery_lat": lat,
+        "delivery_lon": lon,
+    }
