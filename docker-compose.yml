@@ -48,6 +48,7 @@ services:
       - "8001:8000"
     volumes:
       - ./app:/app/app
+      - ./web:/app/web
 
   worker:
     build: .
