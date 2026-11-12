@@ -49,6 +49,22 @@ services:
     volumes:
       - ./app:/app/app
 
+  worker:
+    build: .
+    container_name: cadete-worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker.main"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cadete}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cadete}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./app:/app/app
+
 volumes:
   postgres_data:
   redis_data:

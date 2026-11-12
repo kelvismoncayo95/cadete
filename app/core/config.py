@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     pedidos_max_por_minuto: int = 10
     pedidos_ventana_segundos: int = 60
 
+    # Despacho (PRD sección 7)
+    oferta_segundos: int = 30
+    max_ofertas_por_pedido: int = 5
+    aviso_sin_repartidor_minutos: int = 10
+
     database_url: str | None = None
     test_database_url: str | None = None
 
