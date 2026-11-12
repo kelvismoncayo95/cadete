@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     login_max_intentos: int = 10
     login_ventana_segundos: int = 60
 
+    # Reglas de negocio (PRD sección 7). El envío es fijo: $60 = 6000 centavos.
+    envio_cents: int = 6000
+    pedidos_max_por_minuto: int = 10
+    pedidos_ventana_segundos: int = 60
+
     database_url: str | None = None
     test_database_url: str | None = None
 

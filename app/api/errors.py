@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.services.errors import ErrorDeNegocio
 from app.services.order_state import OrderNotFound, TransicionInvalida
 
 
@@ -15,3 +16,7 @@ def registrar_manejadores_de_error(app: FastAPI) -> None:
     @app.exception_handler(OrderNotFound)
     async def pedido_no_encontrado(request: Request, error: OrderNotFound):
         return JSONResponse(status_code=404, content={"detail": "No encontramos ese pedido"})
+
+    @app.exception_handler(ErrorDeNegocio)
+    async def error_de_negocio(request: Request, error: ErrorDeNegocio):
+        return JSONResponse(status_code=error.status_code, content={"detail": error.detalle})
