@@ -8,6 +8,7 @@ from app.api.deps import requiere_rol
 from app.core.database import get_db
 from app.models import Order, User
 from app.schemas.order import OrderDetailOut, RechazoIn
+from app.services.dispatch import despachar_pedido
 from app.services.order_state import cambiar_estado
 from app.services.orders import detalle_pedido
 from app.services.permissions import pedidos_visibles
@@ -51,4 +52,7 @@ def preparando(order_id: uuid.UUID, usuario: User = Depends(requiere_rol("mercha
 
 @router.post("/orders/{order_id}/ready", response_model=OrderDetailOut)
 def listo(order_id: uuid.UUID, usuario: User = Depends(requiere_rol("merchant")), db: Session = Depends(get_db)):
-    return cambiar_pedido_del_comercio(db, usuario, order_id, "listo")
+    resultado = cambiar_pedido_del_comercio(db, usuario, order_id, "listo")
+    despachar_pedido(db, order_id)  # busca al repartidor enseguida; el trabajador reintenta si no hay
+    db.commit()
+    return resultado

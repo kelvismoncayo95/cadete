@@ -28,6 +28,9 @@ def base_vacia(engine: Engine) -> Engine:
         con.execute(text("DROP SCHEMA public CASCADE"))
         con.execute(text("CREATE SCHEMA public"))
         con.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+    # PostGIS guarda en cada conexión los identificadores de sus tipos: al recrear la extensión
+    # hay que cerrar las conexiones viejas, o fallan con "no spatial operator found".
+    engine.dispose()
     return engine
 
 
@@ -58,6 +61,7 @@ def migrada(engine: Engine) -> Engine:
         con.execute(text("DROP SCHEMA public CASCADE"))
         con.execute(text("CREATE SCHEMA public"))
         con.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+    engine.dispose()  # ver base_vacia
     command.upgrade(alembic_cfg(), "head")
     return engine
 

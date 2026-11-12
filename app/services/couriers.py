@@ -5,10 +5,10 @@ from datetime import datetime, timedelta, timezone
 
 import redis
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Courier, CourierPosition, Merchant
+from app.models import Courier, CourierPosition, DispatchOffer, Merchant
 
 RADIO_DE_BUSQUEDA_M = 5000  # 5 km (PRD, reglas de negocio)
 VIGENCIA_POSICION_REDIS_S = 120
@@ -40,6 +40,8 @@ def buscar_repartidor_mas_cercano(
         .where(
             Courier.status == "available",
             Courier.last_location.is_not(None),
+            # Con una oferta pendiente (de cualquier pedido) ya está "reservado".
+            ~exists().where(DispatchOffer.courier_id == Courier.id, DispatchOffer.status == "pendiente"),
             func.ST_DWithin(Courier.last_location, Merchant.location, radio_m),
         )
         .order_by(distancia, Courier.id)
