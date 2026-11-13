@@ -78,7 +78,7 @@ No hay pantalla de registro.
 
 ## 9. Estados del pedido
 
-recibido → aceptado → preparando → listo → asignado → en_camino → entregado
+recibido → aceptado → preparando → listo → asignado → **en_comercio** → en_camino → entregado
 
 Ramas: recibido → rechazado (por el comercio) · recibido, aceptado o preparando → cancelado (por el cliente)
 
@@ -105,7 +105,9 @@ Los identificadores `{id}` son UUID.
 | POST /merchant/orders/{id}/accept, reject, preparing, ready | acciones del comercio |
 | GET /courier/offers | ofertas pendientes |
 | POST /courier/offers/{id}/accept y reject | responder una oferta |
-| POST /courier/orders/{id}/picked-up y delivered | retiro y entrega |
+| POST /courier/orders/{id}/arrived, picked-up y delivered | llegada al comercio (≤ 25 m), retiro y entrega (≤ 25 m del cliente; cobra y paga) |
+| POST /courier/autopilot | demo: la moto va sola por las calles hacia su próximo destino |
+| GET /wallet | mi saldo, lo de hoy y mis movimientos |
 | POST /courier/location | enviar mi posición |
 | GET /orders/{id}/live | seguimiento en vivo (SSE) |
 | GET /admin/live | mapa de administración (SSE) |

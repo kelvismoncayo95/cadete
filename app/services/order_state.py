@@ -13,7 +13,8 @@ TRANSICIONES: dict[str, frozenset[str]] = {
     "aceptado": frozenset({"preparando", "cancelado"}),
     "preparando": frozenset({"listo", "cancelado"}),
     "listo": frozenset({"asignado"}),
-    "asignado": frozenset({"en_camino"}),
+    "asignado": frozenset({"en_comercio"}),     # el repartidor llegó al comercio
+    "en_comercio": frozenset({"en_camino"}),    # retiró el pedido
     "en_camino": frozenset({"entregado"}),
     "entregado": frozenset(),
     "rechazado": frozenset(),

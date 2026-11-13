@@ -32,6 +32,7 @@ def buscar_repartidor_mas_cercano(
     merchant_id: uuid.UUID,
     radio_m: int = RADIO_DE_BUSQUEDA_M,
     excluir: list[uuid.UUID] | None = None,
+    excluir_usuarios: set[str] | None = None,
 ) -> Candidato | None:
     """El repartidor disponible que llega MÁS RÁPIDO al comercio por las calles, dentro del radio.
 
@@ -63,6 +64,8 @@ def buscar_repartidor_mas_cercano(
     )
     if excluir:
         lista = lista.where(Courier.id.not_in(excluir))
+    if excluir_usuarios:
+        lista = lista.where(User.username.not_in(excluir_usuarios))
     candidatos = db.execute(lista).all()
     if not candidatos:
         return None

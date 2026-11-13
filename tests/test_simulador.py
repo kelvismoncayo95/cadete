@@ -247,7 +247,7 @@ def test_el_repartidor_sigue_la_ruta_por_las_esquinas_hasta_el_comercio(sesion, 
         if estado != "asignado":
             break
     assert esquina_vista, "tendría que haber doblado en la esquina"
-    assert estado == "en_camino"
+    assert estado == "en_comercio"   # llegó al comercio y marcó la llegada; el próximo paso es retirar
 
 
 def test_al_aparecer_los_repartidores_se_ajustan_a_la_calle(sesion, redis_test):

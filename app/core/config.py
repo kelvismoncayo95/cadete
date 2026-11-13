@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     # para que quien visita la demo pueda probar el rol de repartidor aunque haya repartidores simulados.
     # Varios nombres separados por coma. Vacío = sin prioridad (comportamiento real).
     repartidores_prioritarios: str = ""
+    # Demo: un pedido que atiende una persona (no simulado) espera esto antes de ofrecerse a los repartidores
+    # simulados, para darle tiempo a la persona de conectarse como repartidora. 0 = sin espera.
+    espera_humanos_s: int = 0
+
+    # Entrega y pagos (juguete). El GPS real tiene un error de 5 a 10 m y la moto queda pegada a la calle,
+    # por eso el radio de llegada no puede ser de 2 m: 25 m.
+    radio_llegada_m: float = 25.0
+    pago_base_repartidor_cents: int = 4000       # $40 por pedido
+    pago_por_km_repartidor_cents: int = 1500     # $15 por km (el viaje al comercio también se paga)
+    comision_comercio_pct: int = 10              # la plataforma se queda con el 10 % de los productos
 
     database_url: str | None = None
     test_database_url: str | None = None

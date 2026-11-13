@@ -19,14 +19,14 @@ from app.services.routing import get_router
 
 CANAL_TODO = "live:all"
 TERMINALES = ("entregado", "rechazado", "cancelado")
-EN_CURSO = ("asignado", "en_camino")
+EN_CURSO = ("asignado", "en_comercio", "en_camino")
 
 
 def canal_pedido(order_id: uuid.UUID | str) -> str:
     return f"order:{order_id}"
 
 
-def _coordenadas(db: Session, order_id: uuid.UUID) -> dict[str, Any]:
+def coordenadas_del_pedido(db: Session, order_id: uuid.UUID) -> dict[str, Any]:
     fila = db.execute(
         text(
             "SELECT ST_Y(m.location::geometry) AS mlat, ST_X(m.location::geometry) AS mlon, "
@@ -43,10 +43,10 @@ def _coordenadas(db: Session, order_id: uuid.UUID) -> dict[str, Any]:
 def ruta_del_pedido(estado: str, courier: tuple[float, float] | None, comercio: tuple[float, float],
                     destino: tuple[float, float]):
     """La ruta por calles que se dibuja: repartidor → comercio → cliente (asignado), repartidor → cliente
-    (en camino) o comercio → cliente (todavía sin repartidor)."""
+    (ya retiró) o comercio → cliente (todavía sin repartidor)."""
     if courier and estado == "asignado":
         puntos = [courier, comercio, destino]
-    elif courier and estado == "en_camino":
+    elif courier and estado in ("en_comercio", "en_camino"):
         puntos = [courier, destino]
     else:
         puntos = [comercio, destino]
@@ -65,7 +65,7 @@ def _coordenadas_de_ruta(ruta) -> list[list[float]]:
 
 
 def datos_de_pedido(db: Session, pedido: Order) -> dict[str, Any]:
-    c = _coordenadas(db, pedido.id)
+    c = coordenadas_del_pedido(db, pedido.id)
     courier = (c["clat"], c["clon"]) if c["clat"] is not None else None
     comercio, destino = (c["mlat"], c["mlon"]), (c["dlat"], c["dlon"])
     ruta = ruta_del_pedido(pedido.status, courier, comercio, destino)
@@ -102,7 +102,7 @@ def publicar_posicion(db: Session, r: redis.Redis, repartidor: Courier, lat: flo
     pedido = db.scalar(select(Order).where(Order.courier_id == repartidor.id, Order.status.in_(EN_CURSO)))
     if pedido is None:
         return
-    c = _coordenadas(db, pedido.id)
+    c = coordenadas_del_pedido(db, pedido.id)
     ruta = ruta_del_pedido(pedido.status, (lat, lon), (c["mlat"], c["mlon"]), (c["dlat"], c["dlon"]))
     _publicar(r, [canal_pedido(pedido.id)], {
         "tipo": "posicion", "order_id": str(pedido.id), "lat": lat, "lon": lon,

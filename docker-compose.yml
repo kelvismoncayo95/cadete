@@ -62,6 +62,7 @@ services:
       OSRM_URL: http://osrm:5000
       # En la demo, Rosa (repartidora manual) recibe las ofertas antes que los simulados.
       REPARTIDORES_PRIORITARIOS: ${REPARTIDORES_PRIORITARIOS:-rosa}
+      ESPERA_HUMANOS_S: ${ESPERA_HUMANOS_S:-90}
       # La demo corre acelerada (el simulador va ~3 veces más rápido que un repartidor real): el tiempo
       # estimado se divide por lo mismo para que coincida con lo que se ve en el mapa.
       ACELERACION_DEMO: ${ACELERACION_DEMO:-3}
@@ -89,6 +90,7 @@ services:
       OSRM_URL: http://osrm:5000
       # En la demo, Rosa (repartidora manual) recibe las ofertas antes que los simulados.
       REPARTIDORES_PRIORITARIOS: ${REPARTIDORES_PRIORITARIOS:-rosa}
+      ESPERA_HUMANOS_S: ${ESPERA_HUMANOS_S:-90}
     volumes:
       - ./app:/app/app
 
@@ -110,6 +112,7 @@ services:
       OSRM_URL: http://osrm:5000
       # En la demo, Rosa (repartidora manual) recibe las ofertas antes que los simulados.
       REPARTIDORES_PRIORITARIOS: ${REPARTIDORES_PRIORITARIOS:-rosa}
+      ESPERA_HUMANOS_S: ${ESPERA_HUMANOS_S:-90}
     volumes:
       - ./app:/app/app
 

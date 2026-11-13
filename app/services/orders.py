@@ -23,7 +23,7 @@ def detalle_pedido(db: Session, pedido: Order) -> OrderDetailOut:
     return OrderDetailOut(
         **{c: getattr(pedido, c) for c in (
             "id", "status", "merchant_id", "courier_id", "delivery_address",
-            "subtotal_cents", "delivery_fee_cents", "total_cents", "created_at",
+            "subtotal_cents", "delivery_fee_cents", "total_cents", "courier_pay_cents", "created_at",
         )},
         items=[ItemOut(name=i.name_snapshot, unit_price_cents=i.unit_price_cents, quantity=i.quantity) for i in items],
     )

@@ -13,6 +13,7 @@ semilla fija por oferta/pedido/vuelta, así el simulador es predecible y se pued
 """
 import math
 import random
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -25,6 +26,7 @@ from app.seed import SIMULADOS
 from app.services.couriers import actualizar_posicion
 from app.services.demo import DESTINOS, MARCA, crear_pedido_simulado
 from app.services.dispatch import despachar_pedido, responder_oferta
+from app.services.entrega import entregar, llegar_al_comercio, retirar
 from app.services.errors import ErrorDeNegocio
 from app.services.events import EN_CURSO, TERMINALES, publicar_estado, publicar_posicion
 from app.services.geo import distancia_m, punto_a_distancia
@@ -131,24 +133,51 @@ def _responder_ofertas(db, r, rep: Courier, ahora: datetime, cfg: Config) -> int
 
 
 def _avanzar_entrega(db, r, rep: Courier, cfg: Config) -> int:
+    """Un repartidor simulado hace lo mismo que una persona: va al comercio, marca la llegada, retira,
+    va al cliente y entrega. Cada paso exige estar cerca (lo comprueba el servidor)."""
     pedido = db.scalar(select(Order).where(Order.courier_id == rep.id, Order.status.in_(EN_CURSO)))
     if pedido is None:
         return 0
+    if pedido.status == "en_comercio":
+        retirar(db, pedido, rep.user_id)
+        db.commit()
+        publicar_estado(db, r, pedido.id)
+        return 1
     if pedido.status == "asignado":
         destino = _coords(db, "location", "merchants", pedido.merchant_id)
-        siguiente = "en_camino"
     else:
         destino = _coords(db, "delivery_location", "orders", pedido.id)
-        siguiente = "entregado"
     lat, lon, llego = _mover_por_ruta(db, r, rep, destino, cfg.velocidad_ms * cfg.tick_s)
     if not llego and distancia_m(lat, lon, *destino) > cfg.llegada_m:
         return 0
-    cambiar_estado(db, pedido.id, siguiente, actor_user_id=rep.user_id)
-    if siguiente == "entregado":
-        rep.status = "available"
+    try:
+        (llegar_al_comercio if pedido.status == "asignado" else entregar)(db, pedido, rep.user_id)
+    except ErrorDeNegocio:
+        db.rollback()   # todavía no está lo bastante cerca: reintenta en la próxima vuelta
+        return 0
     db.commit()
     publicar_estado(db, r, pedido.id)
     return 1
+
+
+def _conducir_humanos(db, r, cfg: Config) -> int:
+    """Piloto automático (demo): conduce la moto de un repartidor HUMANO por las calles hacia su próximo
+    destino. Solo la mueve: llegar, retirar y entregar los marca la persona con los botones."""
+    movidos = 0
+    for clave in r.scan_iter("autopilot:*"):
+        rep = db.get(Courier, uuid.UUID(clave.split(":", 1)[1]))
+        if rep is None or rep.status != "busy":
+            continue
+        pedido = db.scalar(select(Order).where(Order.courier_id == rep.id, Order.status.in_(("asignado", "en_camino"))))
+        if pedido is None:
+            continue   # en el comercio esperando que la persona marque «Retiré»: no se mueve
+        if pedido.status == "asignado":
+            destino = _coords(db, "location", "merchants", pedido.merchant_id)
+        else:
+            destino = _coords(db, "delivery_location", "orders", pedido.id)
+        _mover_por_ruta(db, r, rep, destino, cfg.velocidad_ms * cfg.tick_s)
+        movidos += 1
+    return movidos
 
 
 def _atender_comercios(db, r, ahora: datetime, cfg: Config) -> int:
@@ -197,7 +226,7 @@ def tick(db: Session, r: redis.Redis, ahora: datetime | None = None, cfg: Config
     ahora = ahora or _ahora()
     cfg = cfg or Config()
     rng = rng or random.Random()
-    resumen = {"ofertas": 0, "entregas": 0, "comercio": 0, "pedidos": 0}
+    resumen = {"ofertas": 0, "entregas": 0, "comercio": 0, "pedidos": 0, "piloto": 0}
     for rep in _repartidores(db):
         if rep.last_location is None:
             _inicializar(db, r, rep, rng)
@@ -215,6 +244,7 @@ def tick(db: Session, r: redis.Redis, ahora: datetime | None = None, cfg: Config
             _pasear(db, r, rep, ahora, cfg)
         elif rep.status == "busy":
             resumen["entregas"] += _avanzar_entrega(db, r, rep, cfg)
+    resumen["piloto"] = _conducir_humanos(db, r, cfg)
     resumen["comercio"] = _atender_comercios(db, r, ahora, cfg)
     if cfg.generar_pedidos:
         resumen["pedidos"] = _generar_pedido(db, r, rng)

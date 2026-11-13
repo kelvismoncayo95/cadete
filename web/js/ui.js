@@ -23,7 +23,7 @@ export function dinero(centavos) {
 
 export const ESTADOS = {
   recibido: ["Recibido", "info"], aceptado: ["Aceptado", "alerta"], preparando: ["Preparando", "alerta"],
-  listo: ["Listo · buscando repartidor", "info"], asignado: ["Repartidor asignado", "acento"],
+  listo: ["Listo · buscando repartidor", "info"], asignado: ["Repartidor asignado", "acento"], en_comercio: ["Retirando el pedido", "acento"],
   en_camino: ["En camino", "acento"], entregado: ["Entregado", "exito"], rechazado: ["Rechazado", "peligro"],
   cancelado: ["Cancelado", "peligro"],
 };

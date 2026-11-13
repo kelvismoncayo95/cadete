@@ -12,13 +12,31 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import AuditLog, Courier, DispatchOffer, Order, OrderEvent
+from app.seed import SIMULADOS
 from app.services.couriers import buscar_repartidor_mas_cercano
+from app.services.demo import MARCA
 from app.services.errors import ErrorDeNegocio
+from app.services.events import coordenadas_del_pedido
 from app.services.order_state import cambiar_estado
+from app.services.pagos import calcular_pago_repartidor
+from app.services.routing import get_router
 
 
 def _ahora() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _simulados_en_espera(db: Session, pedido: Order, ahora: datetime) -> set[str]:
+    """Demo: durante los primeros segundos de un pedido atendido por una PERSONA, no se le ofrece a los
+    repartidores simulados: así la persona alcanza a conectarse como repartidora (si se conecta, recibe la
+    oferta primero por ser prioritaria; si no, pasada la espera se ofrece a los simulados)."""
+    if not (settings.prioritarios and settings.espera_humanos_s > 0) or pedido.notes == MARCA:
+        return set()
+    listo_desde = db.scalar(select(func.max(OrderEvent.created_at)).where(
+        OrderEvent.order_id == pedido.id, OrderEvent.to_status == "listo"))
+    if listo_desde is None or (ahora - listo_desde).total_seconds() >= settings.espera_humanos_s:
+        return set()
+    return set(SIMULADOS)
 
 
 def despachar_pedido(db: Session, order_id: uuid.UUID, ahora: datetime | None = None) -> DispatchOffer | None:
@@ -36,7 +54,8 @@ def despachar_pedido(db: Session, order_id: uuid.UUID, ahora: datetime | None = 
     if len(previas) >= settings.max_ofertas_por_pedido:
         return None  # se agotaron los intentos
     candidato = buscar_repartidor_mas_cercano(
-        db, pedido.merchant_id, excluir=[o.courier_id for o in previas]
+        db, pedido.merchant_id, excluir=[o.courier_id for o in previas],
+        excluir_usuarios=_simulados_en_espera(db, pedido, ahora),
     )
     if candidato is None:
         return None
@@ -79,7 +98,12 @@ def responder_oferta(
     if aceptar:
         # Falla con TransicionInvalida si el pedido ya no está "listo" (por ejemplo, cancelado).
         cambiar_estado(db, oferta.order_id, "asignado", actor_user_id=user_id)
-        db.get(Order, oferta.order_id).courier_id = repartidor.id
+        pedido = db.get(Order, oferta.order_id)
+        pedido.courier_id = repartidor.id
+        # El pago incluye el viaje hasta el comercio (oferta.distance_m) y el de la entrega: se fija ahora.
+        c = coordenadas_del_pedido(db, pedido.id)
+        entrega = get_router().ruta([(c["mlat"], c["mlon"]), (c["dlat"], c["dlon"])])
+        pedido.courier_pay_cents = calcular_pago_repartidor(oferta.distance_m or 0, entrega.distancia_m)
         repartidor.status = "busy"
         oferta.status = "aceptada"
     else:

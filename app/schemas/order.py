@@ -29,6 +29,7 @@ class OrderOut(BaseModel):
     subtotal_cents: int
     delivery_fee_cents: int
     total_cents: int
+    courier_pay_cents: int | None = None
     created_at: datetime
 
 

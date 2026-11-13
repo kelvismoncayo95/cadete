@@ -28,7 +28,7 @@ def test_el_repartidor_ve_sus_ofertas_pendientes(cliente, sesion):
     assert o["id"] == str(oferta.id) and o["order_id"] == str(pedido_id)
     assert o["merchant_name"].endswith("(demo)") and o["delivery_address"] == "Calle 2"
     assert 480 <= o["distance_m"] <= 520
-    assert o["fee_cents"] == 6000
+    assert o["pay_cents"] >= 4000 and o["delivery_m"] > 0   # base + km (retiro y entrega)
     assert 0 < o["seconds_left"] <= 30
     assert cliente.get("/courier/offers", headers=cabecera(otro.user_id)).json() == []
 
@@ -77,10 +77,18 @@ def asignado_a(sesion):
     return pedido_id, rep
 
 
-def test_retirar_y_entregar(cliente, sesion):
+def ir_a(cliente, rep, lat, lon):
+    assert cliente.post("/courier/location", json={"lat": lat, "lon": lon}, headers=cabecera(rep.user_id)).status_code == 204
+
+
+def test_llegar_retirar_y_entregar(cliente, sesion):
     pedido_id, rep = asignado_a(sesion)
+    ir_a(cliente, rep, LAT, LON)                                   # al comercio
+    r = cliente.post(f"/courier/orders/{pedido_id}/arrived", headers=cabecera(rep.user_id))
+    assert (r.status_code, r.json()["status"]) == (200, "en_comercio")
     r = cliente.post(f"/courier/orders/{pedido_id}/picked-up", headers=cabecera(rep.user_id))
     assert (r.status_code, r.json()["status"]) == (200, "en_camino")
+    ir_a(cliente, rep, LAT, -56.16)                                # a la casa del cliente
     r = cliente.post(f"/courier/orders/{pedido_id}/delivered", headers=cabecera(rep.user_id))
     assert (r.status_code, r.json()["status"]) == (200, "entregado")
     sesion.expire_all()
@@ -96,7 +104,7 @@ def test_no_se_puede_entregar_sin_haber_retirado(cliente, sesion):
 def test_un_repartidor_no_toca_el_pedido_de_otro(cliente, sesion):
     pedido_id, rep = asignado_a(sesion)
     otro = repartidor_en(sesion, LAT + 0.5, LON)
-    assert cliente.post(f"/courier/orders/{pedido_id}/picked-up", headers=cabecera(otro.user_id)).status_code == 404
+    assert cliente.post(f"/courier/orders/{pedido_id}/arrived", headers=cabecera(otro.user_id)).status_code == 404
 
 
 def test_al_marcar_listo_el_comercio_dispara_la_oferta(cliente, sesion):
@@ -127,7 +135,10 @@ def test_recorrido_completo_de_un_pedido(cliente, sesion):
 
     (oferta,) = cliente.get("/courier/offers", headers=cabecera(rep.user_id)).json()
     assert cliente.post(f"/courier/offers/{oferta['id']}/accept", headers=cabecera(rep.user_id)).status_code == 200
+    ir_a(cliente, rep, LAT, LON)
+    assert cliente.post(f"/courier/orders/{pedido_id}/arrived", headers=cabecera(rep.user_id)).status_code == 200
     assert cliente.post(f"/courier/orders/{pedido_id}/picked-up", headers=cabecera(rep.user_id)).status_code == 200
+    ir_a(cliente, rep, -34.90, -56.16)                             # la casa del cliente (el destino de cuerpo_pedido)
     assert cliente.post(f"/courier/orders/{pedido_id}/delivered", headers=cabecera(rep.user_id)).status_code == 200
 
     final = cliente.get(f"/orders/{pedido_id}", headers=cabecera(yo.id)).json()
@@ -136,5 +147,5 @@ def test_recorrido_completo_de_un_pedido(cliente, sesion):
 
     eventos = sesion.scalars(select(OrderEvent).where(OrderEvent.order_id == uuid.UUID(pedido_id)).order_by(OrderEvent.id)).all()
     assert [e.to_status for e in eventos] == [
-        "recibido", "aceptado", "preparando", "listo", "asignado", "en_camino", "entregado",
+        "recibido", "aceptado", "preparando", "listo", "asignado", "en_comercio", "en_camino", "entregado",
     ]

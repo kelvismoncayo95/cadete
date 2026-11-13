@@ -80,6 +80,10 @@ Demostrar que sé construir un backend con varios actores, eventos en tiempo rea
 | Despacho | empieza cuando el pedido está «listo». Despachar antes, mientras se prepara, queda como mejora futura |
 | Intentos | hasta 5 ofertas por pedido |
 | Sin repartidores | el pedido queda «listo» y se reintenta cada 30 segundos; a los 10 minutos se avisa al comercio |
+| Entrega paso a paso | asignado → **llegué al comercio** (solo a ≤ 25 m del comercio o de su calle) → **retiré el pedido** → **entregué el pedido** (solo a ≤ 25 m del cliente). El servidor lo comprueba; los botones de la pantalla solo reflejan lo mismo. 25 m y no 2 m porque el GPS real tiene 5 a 10 m de error y la moto queda pegada a la calle |
+| Pago al repartidor | base $40 + $15 por km, contando el viaje al comercio y el de la entrega (redondeado al peso). Se fija al aceptar y se muestra en la oferta |
+| Cobros | al entregar: se cobra al cliente (productos + envío), se paga al comercio el 90 % de los productos y al repartidor su pago; la plataforma absorbe la diferencia. Libro de movimientos que suma cero por pedido |
+| Tablero del comercio | lo que el repartidor ya retiró sale de «Listos» y pasa a «En camino»; al entregarse desaparece y suma al «Ganado hoy» |
 | Un solo pedido por repartidor | un repartidor atiende un pedido a la vez |
 | Posiciones | el repartidor en camino envía su posición cada 5 segundos, por POST |
 | Repetición | crear un pedido con la misma clave de idempotencia lo crea una sola vez |

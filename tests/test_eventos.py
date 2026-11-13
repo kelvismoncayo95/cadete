@@ -105,8 +105,9 @@ def test_enviar_posicion_sin_pedido_solo_llega_al_canal_general(cliente, sesion,
     assert canal == CANAL_TODO and mensaje["tipo"] == "repartidor"
 
 
-def test_aceptar_retirar_y_entregar_publican_estados(cliente, sesion, escucha):
+def test_aceptar_llegar_retirar_y_entregar_publican_estados(cliente, sesion, escucha):
     from app.services.dispatch import despachar_pedido
+    from tests.helpers import punto
 
     pedido_id = crear_pedido(sesion, "listo")
     rep = repartidor_en(sesion, LAT + 0.0045, LON)
@@ -114,9 +115,14 @@ def test_aceptar_retirar_y_entregar_publican_estados(cliente, sesion, escucha):
     sesion.commit()
     escucha.suscribir(canal_pedido(pedido_id))
     cliente.post(f"/courier/offers/{oferta.id}/accept", headers=cabecera(rep.user_id))
+    rep.last_location = punto(LON, LAT)                      # (la posición se pone directo: acá solo importan los estados)
+    sesion.commit()
+    cliente.post(f"/courier/orders/{pedido_id}/arrived", headers=cabecera(rep.user_id))
     cliente.post(f"/courier/orders/{pedido_id}/picked-up", headers=cabecera(rep.user_id))
+    rep.last_location = punto(-56.16, LAT)                   # la casa del cliente
+    sesion.commit()
     cliente.post(f"/courier/orders/{pedido_id}/delivered", headers=cabecera(rep.user_id))
-    assert [m["status"] for _, m in escucha(3)] == ["asignado", "en_camino", "entregado"]
+    assert [m["status"] for _, m in escucha(4)] == ["asignado", "en_comercio", "en_camino", "entregado"]
 
 
 # ---------- SSE ----------
