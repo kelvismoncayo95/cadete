@@ -15,6 +15,7 @@ Cadete es un monolito modular en FastAPI con PostgreSQL y PostGIS, Redis para po
 | Tiempo real | SSE (Server-Sent Events) | el servidor empuja datos al cliente, con reconexión incluida |
 | Mapa | MapLibre GL JS + archivo PMTiles propio | mapa de código abierto con estilo propio |
 | Rutas | OSRM (perfil auto, algoritmo MLD) | rutas reales por calles, rápido y liviano |
+| Direcciones | geocodificador propio: tablas `geo_calles` y `geo_direcciones` (OSM) + `pg_trgm` | buscar direcciones escritas sin servicios externos (311.134 puertas, 6.068 calles) |
 | Pruebas | pytest | incluye concurrencia y consultas geográficas |
 | Empaquetado | Docker Compose | api, worker, db, redis y simulador |
 | Integración continua | GitHub Actions | tests y gitleaks en cada commit |

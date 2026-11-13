@@ -41,4 +41,6 @@ Own vector map of Montevideo: [Protomaps](https://docs.protomaps.com/basemaps/do
 
 Routes follow the real street network (one-way streets and turn restrictions included) using [OSRM](https://github.com/Project-OSRM/osrm-backend) over OpenStreetMap data of Uruguay (`routing/preparar.sh`).
 
-Map and routing data © OpenStreetMap contributors (ODbL).
+Customers can type any address ("Av. 18 de Julio 1500", "Colonia y Ejido"): a self-hosted geocoder built from OpenStreetMap addresses (311k house numbers, `geocoder/cargar.py`) resolves it, with no external service.
+
+Map, routing and address data © OpenStreetMap contributors (ODbL).
