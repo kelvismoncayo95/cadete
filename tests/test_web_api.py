@@ -92,3 +92,27 @@ def test_los_scripts_de_la_web_tienen_sintaxis_valida(tmp_path):
         copia.write_text(script.read_text())
         resultado = subprocess.run(["node", "--check", str(copia)], capture_output=True, text=True)
         assert resultado.returncode == 0, f"{script.name}: {resultado.stderr[:300]}"
+
+
+def test_el_uuid_de_la_web_funciona_sin_contexto_seguro():
+    """Safari/Chrome solo tienen crypto.randomUUID en HTTPS o localhost. Por http://IP (p. ej. Tailscale) NO existe:
+    «Confirmar pedido» fallaba. El módulo trae un respaldo con getRandomValues."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    import pytest
+
+    if shutil.which("node") is None:
+        pytest.skip("Node no está instalado")
+    modulo = Path(__file__).resolve().parent.parent / "web" / "js" / "uuid.js"
+    guion = (
+        "Object.defineProperty(globalThis.crypto, 'randomUUID', {value: undefined});"
+        f"const {{ nuevoUuid }} = await import('file://{modulo}');"
+        "const a = nuevoUuid(), b = nuevoUuid();"
+        "if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(a)) throw new Error('formato: ' + a);"
+        "if (a === b) throw new Error('repetido');"
+        "console.log('ok');"
+    )
+    r = subprocess.run(["node", "--input-type=module", "-e", guion], capture_output=True, text=True)
+    assert r.returncode == 0 and "ok" in r.stdout, r.stderr[:400]

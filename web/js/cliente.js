@@ -1,5 +1,6 @@
 import { api, exigirRol, suscribir } from "/js/api.js";
 import { $, el, dinero, chipEstado, ESTADOS, PASOS, toast, barraSuperior, temaActual } from "/js/ui.js";
+import { nuevoUuid } from "/js/uuid.js";
 import { crearMapa, encuadrar, ponerComercio, ponerDestino, ponerRepartidor, moverSuave, dibujarRuta } from "/js/mapa.js";
 
 exigirRol("customer");
@@ -126,7 +127,7 @@ async function pantallaPedido(merchantId) {
 
   confirmar.addEventListener("click", async () => {
     confirmar.disabled = true;
-    claveIdempotencia ??= crypto.randomUUID();
+    claveIdempotencia ??= nuevoUuid();
     try {
       const pedido = await api("/orders", { metodo: "POST", clave: claveIdempotencia, cuerpo: {
         merchant_id: merchantId, delivery_address: direccion.value.trim() || "Sin dirección",
