@@ -7,8 +7,9 @@ En cada vuelta (tick):
   - un «comercio» acepta, prepara y marca listos los pedidos con la marca [simulado];
   - si no hay ningún pedido simulado activo, crea uno de juguete.
 
-Se mueven en línea recta (sin calles): es una demo. Las decisiones al azar salen de una semilla
-fija por oferta/pedido, así el simulador es predecible y se puede probar.
+Se mueven POR LAS CALLES: en cada vuelta se pide la ruta al motor (OSRM, que respeta sentidos únicos) y
+se avanza esa distancia por la polilínea, doblando en las esquinas. Las decisiones al azar salen de una
+semilla fija por oferta/pedido/vuelta, así el simulador es predecible y se puede probar.
 """
 import math
 import random
@@ -19,7 +20,6 @@ import redis
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from app.core.zone import dentro_de_montevideo
 from app.models import Courier, DispatchOffer, Merchant, Order, OrderEvent, User
 from app.seed import SIMULADOS
 from app.services.couriers import actualizar_posicion
@@ -27,12 +27,13 @@ from app.services.demo import DESTINOS, MARCA, crear_pedido_simulado
 from app.services.dispatch import despachar_pedido, responder_oferta
 from app.services.errors import ErrorDeNegocio
 from app.services.events import EN_CURSO, TERMINALES, publicar_estado, publicar_posicion
-from app.services.geo import distancia_m, mover_hacia
+from app.services.geo import distancia_m, punto_a_distancia
 from app.services.order_state import cambiar_estado
+from app.services.routing import get_router
 
 REPARTIDORES_DE_LA_DEMO = SIMULADOS
 CLIENTES_DE_LA_DEMO = ("ana", "pedro")
-RADIO_DE_PASEO_M = 150.0           # los repartidores libres no se alejan más de esto de un punto en tierra
+PASEO_CADA_S = 90                # cada tanto el repartidor libre elige otro punto al que ir
 SIGUIENTE_DEL_COMERCIO = {"recibido": "aceptado", "aceptado": "preparando", "preparando": "listo"}
 
 
@@ -59,12 +60,14 @@ def _coords(db: Session, columna: str, tabla: str, id_) -> tuple[float, float]:
     return fila[0], fila[1]
 
 
-def _mover(db, r, rep: Courier, destino: tuple[float, float], cfg: Config) -> tuple[float, float]:
+def _mover_por_ruta(db, r, rep: Courier, destino: tuple[float, float], metros: float) -> tuple[float, float, bool]:
+    """Avanza `metros` por la ruta de calles hasta el destino. Devuelve (lat, lon, llegó)."""
     lat, lon = _coords(db, "last_location", "couriers", rep.id)
-    lat, lon = mover_hacia(lat, lon, *destino, cfg.velocidad_ms * cfg.tick_s)
-    actualizar_posicion(db, r, rep, lat, lon)
-    publicar_posicion(db, r, rep, lat, lon)
-    return lat, lon
+    ruta = get_router().ruta([(lat, lon), destino])
+    nlat, nlon, llego = punto_a_distancia(ruta.coordenadas, metros)
+    actualizar_posicion(db, r, rep, nlat, nlon)
+    publicar_posicion(db, r, rep, nlat, nlon)
+    return nlat, nlon, llego
 
 
 def _repartidores(db: Session) -> list[Courier]:
@@ -75,36 +78,29 @@ def _repartidores(db: Session) -> list[Courier]:
 
 
 def _bases(db: Session) -> list[tuple[float, float]]:
-    """Puntos en TIERRA FIRME alrededor de los cuales se mueven los repartidores libres: los comercios
-    y los barrios de la lista de destinos (verificados con `map/verificar_destinos.py`)."""
+    """Puntos en TIERRA FIRME entre los que se mueven los repartidores libres: los comercios y los barrios
+    de la lista de destinos (verificados con `map/verificar_destinos.py`)."""
     comercios = db.execute(text("SELECT ST_Y(location::geometry), ST_X(location::geometry) FROM merchants ORDER BY id")).all()
     return [(d[1], d[2]) for d in DESTINOS] + [(c[0], c[1]) for c in comercios]
 
 
 def _inicializar(db, r, rep: Courier, rng: random.Random) -> None:
-    """Primera vez: aparece pegado a algún punto en tierra y queda disponible."""
+    """Primera vez: aparece sobre una calle cerca de algún punto conocido y queda disponible."""
     lat, lon = rng.choice(_bases(db))
     lat, lon = lat + rng.uniform(-0.0004, 0.0004), lon + rng.uniform(-0.0004, 0.0004)
+    ajuste = get_router().ajustar((lat, lon))
+    if ajuste is not None:
+        lat, lon = ajuste[0]   # encima de la calle más cercana
     actualizar_posicion(db, r, rep, lat, lon)
     publicar_posicion(db, r, rep, lat, lon)
 
 
-def _pasear(db, r, rep: Courier, cfg: Config, rng: random.Random) -> None:
-    """Un paso corto al azar, pero siempre cerca de un punto en tierra: si se alejó, vuelve hacia él.
-    (Antes se paseaban libremente y a veces terminaban en el río.)"""
-    lat, lon = _coords(db, "last_location", "couriers", rep.id)
-    paso = cfg.velocidad_ms * cfg.tick_s * 0.3
-    base = min(_bases(db), key=lambda b: distancia_m(lat, lon, *b))
-    if distancia_m(lat, lon, *base) > RADIO_DE_PASEO_M:
-        nueva = mover_hacia(lat, lon, *base, paso)
-    else:
-        angulo = rng.uniform(0, 2 * math.pi)
-        nueva = (lat + paso * math.cos(angulo) / 111_200, lon + paso * math.sin(angulo) / (111_200 * math.cos(math.radians(lat))))
-        if distancia_m(*nueva, *base) > RADIO_DE_PASEO_M:
-            nueva = (lat, lon)   # ese paso lo sacaba del radio: se queda donde está
-    if dentro_de_montevideo(*nueva) and nueva != (lat, lon):
-        actualizar_posicion(db, r, rep, *nueva)
-        publicar_posicion(db, r, rep, *nueva)
+def _pasear(db, r, rep: Courier, ahora: datetime, cfg: Config) -> None:
+    """El repartidor libre recorre la ciudad: va por las calles hacia un punto conocido y, cada 90 s,
+    elige otro. El destino sale de una semilla (repartidor + franja de tiempo): es estable y probable."""
+    azar = random.Random(f"{rep.id}:{int(ahora.timestamp() // PASEO_CADA_S)}")
+    destino = azar.choice(_bases(db))
+    _mover_por_ruta(db, r, rep, destino, cfg.velocidad_ms * cfg.tick_s * 0.5)
 
 
 def _responder_ofertas(db, r, rep: Courier, ahora: datetime, cfg: Config) -> int:
@@ -144,8 +140,8 @@ def _avanzar_entrega(db, r, rep: Courier, cfg: Config) -> int:
     else:
         destino = _coords(db, "delivery_location", "orders", pedido.id)
         siguiente = "entregado"
-    lat, lon = _mover(db, r, rep, destino, cfg)
-    if distancia_m(lat, lon, *destino) > cfg.llegada_m:
+    lat, lon, llego = _mover_por_ruta(db, r, rep, destino, cfg.velocidad_ms * cfg.tick_s)
+    if not llego and distancia_m(lat, lon, *destino) > cfg.llegada_m:
         return 0
     cambiar_estado(db, pedido.id, siguiente, actor_user_id=rep.user_id)
     if siguiente == "entregado":
@@ -216,7 +212,7 @@ def tick(db: Session, r: redis.Redis, ahora: datetime | None = None, cfg: Config
                 continue  # una cosa por vuelta: responde ahora y se mueve en la próxima
             db.refresh(rep)
         if rep.status == "available":
-            _pasear(db, r, rep, cfg, rng)
+            _pasear(db, r, rep, ahora, cfg)
         elif rep.status == "busy":
             resumen["entregas"] += _avanzar_entrega(db, r, rep, cfg)
     resumen["comercio"] = _atender_comercios(db, r, ahora, cfg)

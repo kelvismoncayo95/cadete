@@ -145,3 +145,14 @@ def servidor(cliente):
     yield f"http://127.0.0.1:{puerto}"
     server.should_exit = True
     hilo.join(5)
+
+
+@pytest.fixture(autouse=True)
+def router_recta():
+    """Los tests no dependen de OSRM: usan línea recta salvo que pidan otro router."""
+    from app.services.routing import usar_router
+    from tests.helpers import RouterFalso
+
+    usar_router(RouterFalso())
+    yield
+    usar_router(None)

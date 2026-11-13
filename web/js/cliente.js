@@ -171,7 +171,7 @@ async function pantallaSeguir(orderId) {
       el("div", { class: "fila", style: "margin-top:6px" }, el("p", { class: "estado-grande" }, MENSAJES[d.status]), chipEstado(d.status)),
       ["rechazado", "cancelado"].includes(d.status) ? null : el("ol", { class: "linea-tiempo", "aria-label": "Progreso" },
         PASOS.map((p, i) => el("li", { class: i < paso ? "hecho" : i === paso ? "hecho actual" : "", "aria-current": i === paso ? "step" : null }, ESTADOS[p][0].replace(" · buscando repartidor", "")))),
-      d.eta_min != null ? el("p", {}, "Llega en unos ", el("b", {}, `${d.eta_min} minuto${d.eta_min === 1 ? "" : "s"}`), el("span", { class: "suave" }, " (es una estimación)")) : null,
+      d.eta_min != null ? el("p", {}, "Llega en unos ", el("b", {}, `${d.eta_min} minuto${d.eta_min === 1 ? "" : "s"}`), el("span", { class: "suave" }, " (estimación por calles)")) : null,
       !conectado ? el("p", { class: "chip alerta", role: "status" }, "Reconectando…") : null,
       detalle,
       cancelable ? el("button", { class: "btn peligro ancho", type: "button", style: "margin-top:10px", onclick: cancelar }, "Cancelar pedido") : null,
@@ -192,8 +192,7 @@ async function pantallaSeguir(orderId) {
     mComercio ??= ponerComercio(mapa, [c.lon, c.lat], nombre.replace(" (demo)", ""));
     mDestino ??= ponerDestino(mapa, [dst.lon, dst.lat], "Tu casa");
     if (rep) { if (!mRepartidor) mRepartidor = ponerRepartidor(mapa, [rep.lon, rep.lat], "Repartidor"); else moverSuave(mRepartidor, [rep.lon, rep.lat]); }
-    const camino = d.status === "en_camino" && rep ? [[rep.lon, rep.lat], [dst.lon, dst.lat]]
-      : d.status === "asignado" && rep ? [[rep.lon, rep.lat], [c.lon, c.lat], [dst.lon, dst.lat]] : [[c.lon, c.lat], [dst.lon, dst.lat]];
+    const camino = d.route;   // la ruta POR CALLES la calcula el servidor (respeta sentidos únicos)
     const dibujar = () => dibujarRuta(mapa, camino);
     mapa.loaded() ? dibujar() : mapa.once("load", dibujar);
     if (!mapa._encuadrado) { encuadrar(mapa, [[c.lon, c.lat], [dst.lon, dst.lat], ...(rep ? [[rep.lon, rep.lat]] : [])], { abajo: 320, arriba: 90, lados: 60 }); mapa._encuadrado = true; }
@@ -203,7 +202,8 @@ async function pantallaSeguir(orderId) {
   function aplicarPosicion(d) {
     if (!mRepartidor) return;
     moverSuave(mRepartidor, [d.lon, d.lat]);
-    if (ultimo) { ultimo = { ...ultimo, eta_min: d.eta_min, courier: { lat: d.lat, lon: d.lon } }; pintarHoja(ultimo); }
+    if (ultimo) { ultimo = { ...ultimo, eta_min: d.eta_min, courier: { lat: d.lat, lon: d.lon }, route: d.route }; pintarHoja(ultimo); }
+    if (d.route) dibujarRuta(mapa, d.route);   // la ruta se recalcula desde donde está ahora
   }
 
   cerrarStream = suscribir(`/orders/${orderId}/live`, { estado: aplicarEstado, posicion: aplicarPosicion }, (ok) => { conectado = ok; repintar(); });

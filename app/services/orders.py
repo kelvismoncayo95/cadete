@@ -14,6 +14,7 @@ from app.core.zone import dentro_de_montevideo
 from app.models import IdempotencyKey, Merchant, Order, OrderEvent, OrderItem, Product, User
 from app.schemas.order import ItemOut, OrderCreateIn, OrderDetailOut
 from app.services.errors import ErrorDeNegocio
+from app.services.routing import get_router
 from app.services.rate_limit import bloqueado, registrar_fallo
 
 
@@ -44,6 +45,10 @@ def _validar(db: Session, datos: OrderCreateIn) -> tuple[Merchant, dict[uuid.UUI
         raise ErrorDeNegocio(422, "Hay un producto repetido: sumá las unidades en una sola línea")
     if not dentro_de_montevideo(datos.delivery_lat, datos.delivery_lon):
         raise ErrorDeNegocio(422, "Por ahora solo entregamos en Montevideo")
+
+    ajuste = get_router().ajustar((datos.delivery_lat, datos.delivery_lon))
+    if ajuste is not None and ajuste[1] > settings.max_distancia_a_calle_m:   # p. ej. un punto en el río
+        raise ErrorDeNegocio(422, "Ese punto no está sobre una calle. Marcá un punto más cerca de una calle.")
 
     comercio = db.get(Merchant, datos.merchant_id)
     if comercio is None:

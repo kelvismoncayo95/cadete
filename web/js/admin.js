@@ -21,7 +21,7 @@ window.cadeteMapa = mapa;
 function dibujarPedidos() {
   const lineas = [], puntos = [];
   for (const p of pedidos.values()) {
-    lineas.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[p.merchant.lon, p.merchant.lat], [p.destino.lon, p.destino.lat]] } });
+    lineas.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: p.route ?? [[p.merchant.lon, p.merchant.lat], [p.destino.lon, p.destino.lat]] } });
     puntos.push({ type: "Feature", properties: { estado: p.status }, geometry: { type: "Point", coordinates: [p.destino.lon, p.destino.lat] } });
   }
   const datos = (features) => ({ type: "FeatureCollection", features });
@@ -47,7 +47,7 @@ function pintarPanel() {
     el("div", { class: "fila" }, el("span", {}, "Repartidores con pedido"), el("b", {}, String(ocupados))),
     el("div", { class: "fila" }, el("span", {}, "Estado del sistema"), el("b", {}, vistoSistema ?? "…")),
     el("div", { class: "leyenda" }, el("span", {}, el("i", { class: "punto", style: "background:var(--acento)" }), "Repartidor libre"),
-      el("span", {}, el("i", { class: "punto", style: "background:var(--texto)" }), "Con pedido"), el("span", {}, "Línea: comercio → cliente")));
+      el("span", {}, el("i", { class: "punto", style: "background:var(--texto)" }), "Con pedido"), el("span", {}, "Línea: ruta por calles")));
 }
 
 function ponerOMoverRepartidor(id, lat, lon, estado) {

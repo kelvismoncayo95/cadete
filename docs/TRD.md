@@ -14,6 +14,7 @@ Cadete es un monolito modular en FastAPI con PostgreSQL y PostGIS, Redis para po
 | Segundo plano | cola simple (RQ o Arq ⚠) | despacho, reintentos y reinicio nocturno |
 | Tiempo real | SSE (Server-Sent Events) | el servidor empuja datos al cliente, con reconexión incluida |
 | Mapa | MapLibre GL JS + archivo PMTiles propio | mapa de código abierto con estilo propio |
+| Rutas | OSRM (perfil auto, algoritmo MLD) | rutas reales por calles, rápido y liviano |
 | Pruebas | pytest | incluye concurrencia y consultas geográficas |
 | Empaquetado | Docker Compose | api, worker, db, redis y simulador |
 | Integración continua | GitHub Actions | tests y gitleaks en cada commit |
@@ -70,7 +71,7 @@ tests/            # pytest
 8. **Posición actual en Redis, histórico en PostgreSQL.** El repartidor manda su posición con un POST común cada 5 segundos. El histórico se conserva 7 días ⚠.
 9. **Tiempo real con SSE.** Un canal por pedido. El cliente solo recibe, así que no hace falta WebSocket. Si se corta la conexión, el navegador reconecta solo y el cliente pide el estado con un GET: nunca se confía en haber recibido todos los eventos.
 10. **Idempotencia al crear pedidos.** Cabecera `Idempotency-Key`, igual que en minipay.
-11. **Distancia y tiempo estimado.** En la fase 2, distancia en línea recta y velocidad fija ⚠. El ruteo por calles reales es una mejora posterior.
+11. **Rutas por calles (OSRM).** Un motor de rutas open source (OSRM, imagen oficial) con los datos de OpenStreetMap de Uruguay (Geofabrik, ODbL) calcula rutas, distancias y tiempos respetando sentidos únicos y giros prohibidos. Los datos se preparan una vez con `routing/preparar.sh` (extract, partition, customize; unos 90 s y 222 MB de RAM) y el servidor usa ~160 MB. El «más cercano» se elige con un prefiltro barato en PostGIS (los 8 más cercanos en línea recta) y el tiempo real por calle de esos 8 con la API `table`. Destinos y posiciones se validan con `nearest` (a ≤ 150 m de una calle). Si OSRM no responde, `ConRespaldo` usa línea recta y el sistema lo informa (`/admin/system`). Una sola configuración (perfil auto) para todos los repartidores.
 12. **Permisos por rol, con 404 en lo ajeno.** Un cliente que pide el pedido de otro recibe 404, no 403.
 13. **Simulador de repartidores.** Un proceso que mueve repartidores entre puntos de Montevideo y responde ofertas; sin él, la demo se vería vacía.
 14. **Reinicio nocturno.** Una tarea programada vacía y vuelve a sembrar la base de la demo.

@@ -107,3 +107,38 @@ def repartidor_en(session: Session, lat: float, lon: float, estado: str = "avail
     repartidor.status = estado
     session.commit()
     return repartidor
+
+
+class RouterFalso:
+    """Router de pruebas con respuestas a medida. Por defecto se comporta como la línea recta."""
+
+    usando_respaldo = False
+
+    def __init__(self, ruta=None, tabla=None, ajustar=None):
+        from app.services.routing import RectaRouter
+
+        self._recta = RectaRouter(velocidad_kmh=36)   # 10 m/s: fácil de calcular
+        self._ruta, self._tabla, self._ajustar = ruta, tabla, ajustar
+        self.pedidos_de_ruta: list = []
+
+    def ruta(self, puntos):
+        self.pedidos_de_ruta.append(list(puntos))
+        return self._ruta(puntos) if self._ruta else self._recta.ruta(puntos)
+
+    def tabla(self, origenes, destino):
+        return self._tabla(origenes, destino) if self._tabla else self._recta.tabla(origenes, destino)
+
+    def ajustar(self, punto):
+        return self._ajustar(punto) if self._ajustar else self._recta.ajustar(punto)
+
+
+def ruta_en_L(puntos):
+    """Una «ciudad» de calles en cuadrícula: de A a B se va primero al este/oeste y después al norte/sur."""
+    from app.services.geo import distancia_m
+    from app.services.routing import Ruta
+
+    coords = [puntos[0]]
+    for (lat1, lon1), (lat2, lon2) in zip(puntos, puntos[1:]):
+        coords += [(lat1, lon2), (lat2, lon2)]
+    metros = sum(distancia_m(*a, *b) for a, b in zip(coords, coords[1:]))
+    return Ruta(metros, metros / 10, coords)

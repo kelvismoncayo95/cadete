@@ -74,7 +74,8 @@ Demostrar que sé construir un backend con varios actores, eventos en tiempo rea
 | Pedido | un solo comercio por pedido, al menos 1 producto y entre 1 y 20 unidades por producto |
 | Precios | pesos de juguete, guardados en centavos; envío fijo de $60 (confirmado) |
 | Cancelación | el cliente cancela hasta «preparando»; después, no |
-| Búsqueda de repartidor | repartidores disponibles dentro de 5 km del comercio (confirmado), del más cercano al más lejano |
+| Búsqueda de repartidor | repartidores disponibles dentro de 5 km del comercio (confirmado); se elige al que **llega más rápido por las calles** |
+| Rutas | por calles reales, respetando sentidos únicos y giros prohibidos (motor OSRM con datos de OpenStreetMap). Un destino o posición a más de 150 m de una calle (por ejemplo, en el agua) se rechaza. Si el motor de rutas no responde, se usa línea recta como respaldo y el panel del admin lo marca como «degradado» |
 | Oferta | el repartidor tiene 30 segundos para responder (confirmado); si rechaza o no responde, pasa al siguiente |
 | Despacho | empieza cuando el pedido está «listo». Despachar antes, mientras se prepara, queda como mejora futura |
 | Intentos | hasta 5 ofertas por pedido |
@@ -90,7 +91,7 @@ Demostrar que sé construir un backend con varios actores, eventos en tiempo rea
 
 **Fases 4 a 6 (después):** analítica, catálogo con IA y pagos con minipay.
 
-**No incluye:** registro público, dinero real, datos reales de personas o comercios, app móvil nativa, rutas por calles en la primera versión (ver TRD).
+**No incluye:** registro público, dinero real, datos reales de personas o comercios, app móvil nativa.
 
 ## 9. Criterios de éxito
 

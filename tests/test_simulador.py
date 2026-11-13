@@ -70,8 +70,8 @@ def test_los_que_no_son_de_la_demo_no_se_tocan(sesion, redis_test):
 
 def test_los_libres_se_pasean_poco_y_dentro_de_montevideo(sesion, redis_test):
     luis = simulado(sesion, "luis")
-    colocar(sesion, luis, -34.91, -56.15)
-    antes = (-34.91, -56.15)
+    antes = (-34.9120, -56.1520)   # no coincide con ninguna base: siempre tiene hacia dónde ir
+    colocar(sesion, luis, *antes)
     tick(sesion, redis_test, cfg=SIN_PEDIDOS, rng=random.Random(7))
     despues = ubicacion(sesion, luis.id)
     assert 0 < distancia_m(*antes, *despues) <= 25.0 * 5  # a lo sumo lo que avanza en una vuelta
@@ -220,17 +220,86 @@ def test_el_destino_simulado_es_uno_de_la_lista_y_no_queda_pegado_al_comercio():
         assert 400 <= distancia_m(-34.9100, -56.1500, lat, lon) <= 5000
 
 
-def test_los_repartidores_libres_se_quedan_cerca_de_un_punto_en_tierra(sesion, redis_test):
-    """Antes se paseaban al azar y se metían en el río. Ahora no se alejan de un comercio o barrio conocido."""
-    from app.services.demo import DESTINOS
-    from app.simulator.engine import RADIO_DE_PASEO_M
+def test_el_repartidor_sigue_la_ruta_por_las_esquinas_hasta_el_comercio(sesion, redis_test):
+    """Con calles en cuadrícula (primero al oeste, después al sur), la moto nunca corta camino por los edificios."""
+    from tests.helpers import RouterFalso, ruta_en_L
+    from app.services.routing import usar_router
 
+    usar_router(RouterFalso(ruta=ruta_en_L))
+    luis = simulado(sesion, "luis")
+    inicio = (LAT + 0.02, LON + 0.02)
+    colocar(sesion, luis, *inicio, estado="busy")
+    pedido_id = crear_pedido(sesion, "asignado")
+    sesion.get(Order, pedido_id).courier_id = luis.id
+    sesion.commit()
+    cfg = Config(velocidad_ms=40.0, generar_pedidos=False, demora_oferta_s=(0, 0), demora_comercio_s=(0, 0))
+    esquina_vista, estado = False, "asignado"
+    for _ in range(40):
+        tick(sesion, redis_test, cfg=cfg, rng=random.Random(1))
+        lat, lon = ubicacion(sesion, luis.id)
+        sobre_la_primera_calle = abs(lat - inicio[0]) < 2e-5 and LON - 1e-4 <= lon <= inicio[1] + 1e-4
+        sobre_la_segunda_calle = abs(lon - LON) < 2e-5 and LAT - 1e-4 <= lat <= inicio[0] + 1e-4
+        if estado == "asignado":
+            assert sobre_la_primera_calle or sobre_la_segunda_calle, (lat, lon)   # jamás en diagonal
+            esquina_vista = esquina_vista or sobre_la_segunda_calle
+        sesion.expire_all()
+        estado = sesion.get(Order, pedido_id).status
+        if estado != "asignado":
+            break
+    assert esquina_vista, "tendría que haber doblado en la esquina"
+    assert estado == "en_camino"
+
+
+def test_al_aparecer_los_repartidores_se_ajustan_a_la_calle(sesion, redis_test):
+    from tests.helpers import RouterFalso
+    from app.services.routing import usar_router
+
+    ajustados = []
+
+    def ajustar(punto):
+        ajustados.append(punto)
+        return (punto[0] + 0.0001, punto[1]), 7.0   # «la calle está un poquito al norte»
+
+    usar_router(RouterFalso(ajustar=ajustar))
+    seed_demo(sesion)
+    tick(sesion, redis_test, cfg=SIN_PEDIDOS, rng=random.Random(1))
+    assert len(ajustados) >= 3   # uno por cada repartidor simulado
+
+
+def test_los_repartidores_libres_van_de_un_punto_en_tierra_a_otro_por_la_ruta(sesion, redis_test):
+    """Los destinos de paseo son comercios o barrios de la lista (puntos verificados en tierra), nunca puntos al azar."""
+    from tests.helpers import RouterFalso
+    from app.services.demo import DESTINOS
+    from app.services.routing import usar_router
+
+    router = RouterFalso()
+    usar_router(router)
     seed_demo(sesion)
     bases = [(d[1], d[2]) for d in DESTINOS] + [(c["lat"], c["lon"]) for c in COMERCIOS]
-    rng = random.Random(5)
-    for _ in range(150):
+    for _ in range(20):
+        tick(sesion, redis_test, cfg=SIN_PEDIDOS, rng=random.Random(5))
+    destinos = [ruta[-1] for ruta in router.pedidos_de_ruta]
+    assert destinos and all(min(distancia_m(*d, *b) for b in bases) < 1 for d in destinos)
+
+
+def test_real_los_repartidores_de_la_demo_siempre_estan_sobre_una_calle(sesion, redis_test):
+    """Contra el OSRM real: después de muchas vueltas, nadie está en el agua ni dentro de una manzana."""
+    import httpx
+
+    from app.core.config import settings
+    from app.services.routing import ConRespaldo, OsrmRouter, RectaRouter, usar_router
+
+    try:
+        httpx.get(f"{settings.osrm_url}/nearest/v1/driving/-56.15,-34.91", timeout=1.5).raise_for_status()
+    except Exception:
+        pytest.skip("OSRM no está corriendo (docker compose up -d osrm)")
+    osrm = OsrmRouter(settings.osrm_url)
+    usar_router(ConRespaldo(osrm, RectaRouter()))
+    seed_demo(sesion)
+    rng = random.Random(3)
+    for _ in range(40):
         tick(sesion, redis_test, cfg=SIN_PEDIDOS, rng=rng)
         for nombre in SIMULADOS:
             rep = sesion.scalar(select(Courier).join(User).where(User.username == nombre))
             lat, lon = ubicacion(sesion, rep.id)
-            assert min(distancia_m(lat, lon, *b) for b in bases) <= RADIO_DE_PASEO_M + 60, nombre
+            assert osrm.ajustar((lat, lon))[1] < 25, (nombre, lat, lon)
