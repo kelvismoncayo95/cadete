@@ -53,6 +53,7 @@ export function barraSuperior(rol) {
   const s = sesion.leer();
   const barra = el("header", { class: "barra" },
     el("a", { class: "marca", href: "/" }, "Cadete"),
+    s ? el("a", { class: "btn secundario chico", href: "/", title: "Volver al inicio para cambiar de rol sin cerrar sesión" }, "← Inicio") : null,
     s ? el("div", { class: "usuario" }, el("b", {}, s.display_name), rol) : null,
     s ? el("button", { class: "btn secundario chico", type: "button", onclick: () => { sesion.borrar(); location.href = "/"; } }, "Salir") : null);
   document.body.prepend(barra);   // el aviso «Datos inventados» va fijo en el HTML de cada página

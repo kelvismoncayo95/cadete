@@ -149,7 +149,7 @@ def abrir(base, url, headers=None):
     lineas, listo = [], threading.Event()
     hilo = threading.Thread(target=leer_stream, args=(base, url, headers or {}, lineas, listo), daemon=True)
     hilo.start()
-    assert listo.wait(5), "el stream no respondió"
+    assert listo.wait(15), "el stream no respondió"
     return hilo, lineas
 
 

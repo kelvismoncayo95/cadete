@@ -9,22 +9,15 @@ let conocidos = null;            // ids ya vistos (null = primera carga: no avis
 let ocupado = false;
 
 const COLUMNAS = [
-  ["Nuevos", ["recibido"], "Cuando llegue un pedido, aparece acá. Probá «Simular un pedido»."],
+  ["Nuevos", ["recibido"], "Cuando un cliente haga un pedido a tu comercio, aparece acá."],
   ["En preparación", ["aceptado", "preparando"], "Los pedidos que aceptes se preparan acá."],
-  ["Listos para retirar", ["listo", "asignado", "en_comercio"], "Acá esperan al repartidor. Cuando lo retire, pasan a «En camino»."],
+  ["Listos para retirar", ["listo", "asignado", "en_comercio"], "Acá esperan al repartidor. Cuando se los entregues, pasan a «En camino»."],
 ];
 
 const hace = (iso) => {
   const min = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
   return min < 1 ? "recién" : `hace ${min} min`;
 };
-
-async function simular(boton) {
-  boton.disabled = true;
-  try { await api("/demo/simulate-order", { metodo: "POST" }); toast("Llegó un pedido de prueba: atendelo desde «Nuevos»", "ok"); await cargar(); }
-  catch (e) { toast(e.message, "error"); }
-  boton.disabled = false;
-}
 
 async function accion(id, nombre) {
   try { await api(`/merchant/orders/${id}/${nombre}`, { metodo: "POST" }); await cargar(); }
@@ -59,7 +52,6 @@ function pintar(pedidos, alertas, billetera) {
   raiz.replaceChildren(...[
     el("div", { class: "fila" }, el("div", {}, el("h1", {}, "Tablero de pedidos"), el("p", { class: "suave" }, yo.display_name)),
       el("div", { class: "fila" },
-        el("button", { class: "btn chico", type: "button", onclick: (e) => simular(e.currentTarget) }, "Simular un pedido"),
         el("div", { class: "chip exito", title: "Lo que te pagaron hoy por los pedidos entregados (90 % de los productos)" }, `Ganado hoy: ${dinero(billetera.today_cents)}`))),
     el("div", { class: "tablero" }, COLUMNAS.map(([titulo, estados, vacio]) => {
       const lista = pedidos.filter((p) => estados.includes(p.status));

@@ -46,9 +46,6 @@ async function pantallaComercios() {
   raiz.replaceChildren(
     el("h1", {}, "¿Qué se te antoja?"),
     el("p", { class: "suave" }, "Comercios abiertos en Montevideo."),
-    el("div", { class: "fila", style: "margin:12px 0" },
-      el("span", { class: "suave" }, "¿Sin ganas de armar un pedido? Probá cómo funciona:"),
-      el("button", { class: "btn secundario chico", type: "button", id: "simular" }, "Simular un pedido")),
     caja, el("h2", {}, `${comercios.length} comercios`),
     el("div", { class: "rejilla" }, comercios.map((c) =>
       el("a", { class: "tarjeta-link", href: `#/pedido/${c.id}` },
@@ -60,11 +57,6 @@ async function pantallaComercios() {
     m.getElement().addEventListener("click", () => { location.hash = `#/pedido/${c.id}`; });
   }
   encuadrar(mapa, comercios.map(centroDe), { abajo: 30, arriba: 30, lados: 60 });
-  $("#simular").addEventListener("click", async (e) => {
-    e.target.disabled = true;
-    try { const p = await api("/demo/simulate-order", { metodo: "POST" }); location.hash = `#/seguir/${p.id}`; }
-    catch (err) { toast(err.message, "error"); e.target.disabled = false; }
-  });
 }
 
 // ------------------------------------------------------------ Armar el pedido
@@ -201,7 +193,9 @@ async function pantallaSeguir(orderId) {
     const paso = PASO_DE[d.status];
     const cancelable = CANCELABLES.includes(d.status);
     hoja.replaceChildren(...[
-      el("a", { href: "#/pedidos", class: "suave" }, "← Mis pedidos"),
+      el("div", { class: "fila", style: "justify-content:flex-start;gap:16px" },
+        el("a", { href: "#/pedidos", class: "suave" }, "← Mis pedidos"),
+        el("a", { href: "/", class: "suave" }, "← Volver al inicio")),
       el("div", { class: "fila", style: "margin-top:6px" }, el("p", { class: "estado-grande" }, MENSAJES[d.status]), chipEstado(d.status)),
       ["rechazado", "cancelado"].includes(d.status) ? null : el("ol", { class: "linea-tiempo", "aria-label": "Progreso" },
         PASOS.map((p, i) => el("li", { class: i < paso ? "hecho" : i === paso ? "hecho actual" : "", "aria-current": i === paso ? "step" : null }, ESTADOS[p][0].replace(" · buscando repartidor", "")))),
@@ -262,7 +256,7 @@ async function pantallaPedidos() {
       el("a", { class: "tarjeta-link", href: `#/seguir/${p.id}` }, el("div", { class: "tarjeta" },
         el("div", { class: "fila" }, el("b", {}, nombres.get(p.merchant_id) ?? "Comercio"), chipEstado(p.status)),
         el("div", { class: "fila suave" }, el("span", {}, new Date(p.created_at).toLocaleString("es-UY", { dateStyle: "short", timeStyle: "short" })), el("span", { class: "dinero" }, dinero(p.total_cents)))))))
-      : el("div", { class: "vacio" }, "Todavía no hiciste pedidos. Probá «Simular un pedido» en Comercios."));
+      : el("div", { class: "vacio" }, "Todavía no hiciste pedidos. Elegí un comercio en «Comercios» y armá el tuyo."));
 }
 
 navegar();

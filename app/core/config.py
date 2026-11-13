@@ -52,8 +52,9 @@ class Settings(BaseSettings):
     espera_humanos_s: int = 0
 
     # Entrega y pagos (juguete). El GPS real tiene un error de 5 a 10 m y la moto queda pegada a la calle,
-    # por eso el radio de llegada no puede ser de 2 m: 25 m.
-    radio_llegada_m: float = 25.0
+    # por eso el radio de llegada no puede ser de 2 m. Se usan 150 m: hay comercios dentro de un shopping
+    # (Tres Cruces) y destinos dentro de predios sin calles interiores, donde la moto no puede acercarse más.
+    radio_llegada_m: float = 150.0
     pago_base_repartidor_cents: int = 4000       # $40 por pedido
     pago_por_km_repartidor_cents: int = 1500     # $15 por km (el viaje al comercio también se paga)
     comision_comercio_pct: int = 10              # la plataforma se queda con el 10 % de los productos
