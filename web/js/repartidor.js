@@ -95,7 +95,8 @@ function panelDelPedido() {
   const dist = distanciaAlObjetivo();
   const cerca = dist != null && dist <= RADIO_LLEGADA_M;
   const donde = activo.status === "asignado" ? "del comercio" : "del cliente";
-  const consejo = dist == null ? "Esperando tu ubicación…"
+  const consejo = activo.status === "en_comercio" ? "Ya estás en el comercio: cuando te entreguen los productos, tocá «Retiré el pedido»."
+    : dist == null ? "Esperando tu ubicación…"
     : cerca ? "¡Ya llegaste! Podés marcar el paso."
     : `Estás a ${redondear10(dist)} m ${donde}. Tenés que estar a menos de ${RADIO_LLEGADA_M} m.`;
   const titulo = { asignado: "1. Andá al comercio", en_comercio: "2. Retirá el pedido", en_camino: "3. Llevalo al cliente" }[activo.status];
