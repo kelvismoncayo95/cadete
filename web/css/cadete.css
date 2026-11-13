@@ -54,6 +54,10 @@ body { font-family: var(--fuente); background: var(--fondo); color: var(--texto)
   color: var(--texto); background: var(--superficie); box-shadow: var(--sombra);
 }
 .marcador.repartidor .icono { border-radius: 50%; }
+.marcador.comercio.con-pedido .icono { background: var(--alerta-fondo, #fff3d6); color: var(--alerta, #b25e00); border-color: var(--alerta, #b25e00); box-shadow: 0 0 0 0 var(--alerta, #b25e00); animation: pulso-pedido 1.6s ease-out infinite; }
+.marcador.comercio.pedido-listo .icono { background: var(--exito-fondo, #dff5e6); color: var(--exito, #1b7f3b); border-color: var(--exito, #1b7f3b); box-shadow: 0 0 0 0 var(--exito, #1b7f3b); }
+@keyframes pulso-pedido { to { box-shadow: 0 0 0 14px transparent; } }
+@media (prefers-reduced-motion: reduce) { .marcador.comercio.con-pedido .icono { animation: none; } }
 .marcador.comercio .icono { border-radius: 9px; background: var(--superficie); color: var(--acento); border-color: var(--acento); }
 .marcador.destino .icono { border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--texto); color: var(--fondo); }
 .marcador.destino .icono svg { transform: rotate(45deg); }

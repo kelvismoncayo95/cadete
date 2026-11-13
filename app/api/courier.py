@@ -6,7 +6,7 @@ import redis
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from geoalchemy2 import Geometry
-from sqlalchemy import cast, func, select
+from sqlalchemy import cast, func, literal, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import requiere_rol
@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.redis import get_redis
 from app.models import Courier, DispatchOffer, Merchant, Order, User
-from app.schemas.courier import OfertaOut
+from app.schemas.courier import ComercioPreparandoOut, OfertaOut
 from app.schemas.order import OrderDetailOut
 from app.services.couriers import actualizar_posicion
 from app.services.dispatch import responder_oferta
@@ -116,6 +116,34 @@ def mis_ofertas(usuario: User = Depends(requiere_rol("courier")), db: Session = 
             expires_at=o.expires_at, seconds_left=max(0, int((o.expires_at - ahora).total_seconds())),
         ))
     return ofertas
+
+
+@router.get("/preparing", response_model=list[ComercioPreparandoOut])
+def comercios_preparando(usuario: User = Depends(requiere_rol("courier")), db: Session = Depends(get_db)):
+    """Los comercios que tienen pedidos en preparación o listos sin repartidor, con su distancia a mí.
+
+    Sirve para que el repartidor sepa de qué comercio le puede llegar una oferta (las ofertas salen
+    cuando el comercio marca «listo», y solo a los repartidores a menos de 5 km)."""
+    repartidor = _mi_repartidor(db, usuario)
+    filas = db.execute(
+        select(
+            Merchant.id, Merchant.name, Merchant.address,
+            func.ST_Y(cast(Merchant.location, Geometry)), func.ST_X(cast(Merchant.location, Geometry)),
+            func.count(Order.id), func.bool_or(Order.status == "listo"),
+            func.ST_Distance(Merchant.location, repartidor.last_location) if repartidor.last_location is not None else literal(None),
+        )
+        .join(Order, Order.merchant_id == Merchant.id)
+        .where(Order.status.in_(["aceptado", "preparando", "listo"]))
+        .group_by(Merchant.id)
+    ).all()
+    salida = [
+        ComercioPreparandoOut(
+            merchant_id=i, name=n, address=d, lat=lat, lon=lon, orders=cant,
+            status="listo" if hay_listo else "preparando", distance_m=None if dist is None else round(dist),
+        )
+        for i, n, d, lat, lon, cant, hay_listo, dist in filas
+    ]
+    return sorted(salida, key=lambda c: (c.distance_m is None, c.distance_m or 0))
 
 
 @router.post("/offers/{offer_id}/accept", response_model=OrderDetailOut)

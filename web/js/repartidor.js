@@ -17,7 +17,7 @@ raiz.replaceChildren(
 const mapa = await crearMapa("mapa", { tema: temaActual(), centro: [-56.17, -34.905], zoom: 12.2 });
 let miMarcador = null, miPos = null;
 let estado = "offline", ofertas = [], activo = null, cerrarStream = null, pedidoAbierto = null, datosPedido = null;
-let pilotoActivo = false, ultimoActivo = null;
+let pilotoActivo = false, ultimoActivo = null, preparando = [], yaListos = null;
 const marcasPedido = { comercio: null, destino: null };
 
 async function enviarPosicion(lngLat) {
@@ -44,12 +44,6 @@ async function responder(oferta, aceptar) {
   } catch (e) { toast(e.message, "error"); }
   await actualizar();
 }
-async function pedirPrueba(boton) {
-  boton.disabled = true;
-  try { await api("/demo/simulate-order", { metodo: "POST" }); toast("Te mandamos un pedido de prueba: en unos segundos llega la oferta", "ok"); }
-  catch (e) { toast(e.message, "error"); }
-  boton.disabled = false;
-}
 async function avanzar(accionNombre) {
   const id = activo.id, pago = activo.courier_pay_cents;
   try {
@@ -72,6 +66,29 @@ function distanciaAlObjetivo() {
   if (!c || !activo) return null;
   const objetivo = activo.status === "asignado" ? datosPedido.merchant : datosPedido.destino;
   return distanciaM(c.lat, c.lon, objetivo.lat, objetivo.lon);
+}
+
+// Comercios que están preparando un pedido (o ya lo tienen listo): se ven en el mapa y en una lista.
+function tarjetasComercios() {
+  if (!preparando.length) return [];
+  const km = (m) => (m == null ? "?" : (m / 1000).toFixed(1).replace(".", ","));
+  return [el("div", { class: "tarjeta apilado" },
+    el("b", {}, "Comercios con pedidos"),
+    ...preparando.map((c) => el("div", { class: "fila" },
+      el("div", {}, el("b", {}, c.name.replace(" (demo)", "")), el("div", { class: "suave" }, `a ${km(c.distance_m)} km${c.distance_m != null && c.distance_m > 5000 ? " · fuera de tu radio de 5 km" : ""}`)),
+      el("span", { class: `chip ${c.status === "listo" ? "exito" : "alerta"}` }, c.status === "listo" ? "Pedido listo" : "Preparando"))))];
+}
+
+const marcasComercios = new Map();   // id del comercio → marcador en el mapa
+function pintarComercios(lista) {
+  for (const c of lista) {
+    let m = marcasComercios.get(c.merchant_id);
+    if (!m) { m = ponerComercio(mapa, [c.lon, c.lat], c.name.replace(" (demo)", "")); marcasComercios.set(c.merchant_id, m); }
+    const e = m.getElement();
+    e.classList.toggle("con-pedido", true);
+    e.classList.toggle("pedido-listo", c.status === "listo");
+  }
+  for (const [id, m] of marcasComercios) if (!lista.some((c) => c.merchant_id === id)) { m.remove(); marcasComercios.delete(id); }
 }
 
 function panelDelPedido() {
@@ -103,15 +120,15 @@ function pintarPanel() {
       estado === "busy" ? null : el("span", { class: `chip ${estado === "available" ? "exito" : ""}` }, estado === "available" ? "Recibiendo ofertas" : "Sin ofertas")),
     estado === "busy" ? null : el("button", { class: "btn chico", type: "button", disabled: estado === "offline" && !miPos, onclick: () => cambiarEstado(estado === "available" ? "offline" : "available") },
       estado === "available" ? "Desconectarme" : "Ponerme disponible")));
-  if (!miPos) hijos.push(el("div", { class: "vacio" }, "1. Tocá el mapa para indicar dónde estás. 2. Ponete disponible. 3. Pedí un pedido de prueba."));
+  if (!miPos) hijos.push(el("div", { class: "vacio" }, "1. Tocá el mapa para indicar dónde estás. 2. Ponete disponible. 3. Esperá: cuando un comercio marque un pedido como listo, te llega la oferta."));
   else if (estado === "offline") hijos.push(el("div", { class: "vacio" }, "Ya estás en el mapa. Ahora tocá «Ponerme disponible» para recibir ofertas."));
 
   if (activo) {
     hijos.push(panelDelPedido());
   } else if (estado === "available") {
     if (!ofertas.length) hijos.push(el("div", { class: "vacio" }, el("p", { style: "margin:0 0 6px" }, "Esperando pedidos a menos de 5 km del comercio…"),
-      el("p", { class: "suave", style: "margin:0 0 10px;font-size:13px" }, "Te llegan solo los pedidos de comercios cercanos a tu posición."),
-      el("button", { class: "btn", type: "button", onclick: (e) => pedirPrueba(e.currentTarget) }, "Mandarme un pedido de prueba")));
+      el("p", { class: "suave", style: "margin:0;font-size:13px" }, "La oferta llega cuando el comercio marca el pedido como listo, y solo si estás a menos de 5 km de él.")));
+    hijos.push(...tarjetasComercios());
     for (const o of ofertas) {
       const falta = segundosHasta(o.expires_at);
       const km = (m) => (m == null ? "?" : (m / 1000).toFixed(1).replace(".", ","));
@@ -154,8 +171,11 @@ async function actualizar() {
   if (ocupadoActualizando) return;
   ocupadoActualizando = true;
   try {
-    const [st, of, pedidos, w] = await Promise.all([api("/courier/status"), api("/courier/offers"), api("/orders"), api("/wallet")]);
+    const [st, of, pedidos, w, prep] = await Promise.all([api("/courier/status"), api("/courier/offers"), api("/orders"), api("/wallet"), api("/courier/preparing")]);
     estado = st.status; ofertas = of;
+    const hoyListos = new Set(prep.filter((c) => c.status === "listo").map((c) => c.merchant_id));
+    if (yaListos) for (const c of prep) if (hoyListos.has(c.merchant_id) && !yaListos.has(c.merchant_id)) toast(`¡${c.name.replace(" (demo)", "")} tiene un pedido listo para retirar!`, "ok");
+    yaListos = hoyListos;
     ganado.textContent = `Ganado hoy: ${dinero(w.today_cents)}`;
     if (!miPos && st.lat != null) {   // primera vez: dibujo mi moto donde el servidor dice que estoy
       miPos = [st.lon, st.lat];
@@ -171,6 +191,8 @@ async function actualizar() {
     if (!activo && pedidoAbierto) limpiarPedido();
     if (datosPedido && activo && datosPedido.status !== activo.status) datosPedido = { ...datosPedido, status: activo.status };
     ultimoActivo = activo;
+    preparando = activo ? [] : prep;   // con un pedido en curso, el mapa muestra solo ese recorrido
+    pintarComercios(preparando);
     pintarPanel();
   } catch (e) { if (e.estado !== 401) toast(e.message, "error"); }
   ocupadoActualizando = false;

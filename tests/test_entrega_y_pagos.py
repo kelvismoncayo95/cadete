@@ -32,7 +32,7 @@ def test_no_se_puede_marcar_llegada_lejos_del_comercio(cliente, sesion):
     pedido_id, rep = pedido_con_repartidor(sesion, "asignado", LAT + 0.0045, LON)   # a ≈ 500 m
     r = accion(cliente, rep, pedido_id, "arrived")
     assert r.status_code == 409
-    assert "a 500 m del comercio" in r.json()["detail"] and "25 m" in r.json()["detail"]
+    assert "a 500 m del comercio" in r.json()["detail"] and "150 m" in r.json()["detail"]
     assert sesion.get(Order, pedido_id).status == "asignado"
 
 

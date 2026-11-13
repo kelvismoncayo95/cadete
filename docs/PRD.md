@@ -25,7 +25,7 @@ Demostrar que sé construir un backend con varios actores, eventos en tiempo rea
 
 1. Los usuarios ya existen y sus credenciales se publican en el README y en la pantalla de entrada. **La contraseña es única y pública a propósito**, porque solo protege datos inventados.
 2. No hay pantalla de registro.
-3. Un simulador mueve a los repartidores por Montevideo, y un botón «Simular un pedido» crea pedidos de prueba, para que el mapa siempre tenga vida.
+3. Un simulador mueve a los repartidores por Montevideo, y los pedidos los hacen las personas que prueban la demo (los botones «Simular un pedido» se quitaron en el paso 13), para que el mapa siempre tenga vida.
 4. Cada noche, a las 03:00 (hora de Montevideo) ⚠, la base de la demo se reinicia con los datos de ejemplo.
 5. Un aviso fijo dice «Datos inventados · demo pública».
 6. Límites de uso protegen la demo del abuso (ver TRD).

@@ -7,5 +7,5 @@ export function distanciaM(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-export const RADIO_LLEGADA_M = 25;   // igual que RADIO_LLEGADA_M del servidor (app/core/config.py)
+export const RADIO_LLEGADA_M = 150;   // igual que RADIO_LLEGADA_M del servidor (app/core/config.py)
 export const redondear10 = (m) => Math.round(m / 10) * 10;

@@ -112,5 +112,6 @@ Los identificadores `{id}` son UUID.
 | POST /courier/location | enviar mi posición |
 | GET /orders/{id}/live | seguimiento en vivo (SSE) |
 | GET /admin/live | mapa de administración (SSE) |
-| POST /demo/simulate-order | crear un pedido de prueba |
+| POST /demo/simulate-order | crear un pedido de prueba (solo API; la web ya no tiene botón) |
+| GET /courier/preparing | comercios con pedidos preparando/listos, con distancia al repartidor |
 | GET /health y /metrics | estado del sistema |

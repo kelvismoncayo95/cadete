@@ -16,3 +16,15 @@ class OfertaOut(BaseModel):
     delivery_m: int       # distancia por calle del comercio al cliente
     expires_at: datetime
     seconds_left: int
+
+
+class ComercioPreparandoOut(BaseModel):
+    """Un comercio que tiene pedidos en preparación (o listos esperando repartidor)."""
+    merchant_id: uuid.UUID
+    name: str
+    address: str
+    lat: float
+    lon: float
+    status: str           # «preparando» o «listo» (si alguno ya está listo, figura listo)
+    orders: int
+    distance_m: int | None

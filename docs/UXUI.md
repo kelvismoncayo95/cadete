@@ -75,7 +75,7 @@ Cadete se diseña primero para el celular: el cliente y el repartidor usan el te
 | Conexión en vivo caída | aviso discreto «Reconectando…»; al volver, el mapa se corrige solo |
 | Pedido entregado | tarjeta con el resumen |
 | Error | mensaje con el motivo y un botón «Reintentar» |
-| Lista vacía | mensaje útil: «No hay pedidos todavía. Probá «Simular un pedido»» |
+| Lista vacía | mensaje útil: «No hay pedidos todavía. Elegí un comercio y armá el tuyo» |
 | Demo reiniciada | aviso al entrar: «Los datos se restauraron esta noche» |
 
 ## 6. Mensajes
