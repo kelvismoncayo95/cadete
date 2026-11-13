@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, catalog, courier, demo, live, merchant, ops, orders
+from app.api import auth, catalog, courier, demo, live, merchant, ops, orders, wallet
 from app.core.observability import ObservabilidadMiddleware, configurar_logs
 from app.api.errors import registrar_manejadores_de_error
 
@@ -19,6 +19,7 @@ app.include_router(demo.router)
 app.include_router(merchant.router)
 app.include_router(live.router)
 app.include_router(ops.router)
+app.include_router(wallet.router)
 app.include_router(orders.router)
 
 

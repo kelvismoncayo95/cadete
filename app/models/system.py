@@ -33,3 +33,22 @@ class AuditLog(Base):
     entity_id: Mapped[str | None] = mapped_column(String(60))
     detail: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LedgerEntry(Base):
+    """Libro de movimientos (dinero de juguete): cada pedido entregado deja asientos que SUMAN CERO.
+
+    user_id vacío = la plataforma."""
+
+    __tablename__ = "ledger_entries"
+    __table_args__ = (
+        UniqueConstraint("order_id", "concept", name="uq_ledger_entries_order_concept"),
+        Index("ix_ledger_entries_user_id", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    concept: Mapped[str] = mapped_column(String(30))
+    amount_cents: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

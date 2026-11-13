@@ -16,7 +16,7 @@ VALIDAS = [
     ("recibido", "aceptado"), ("recibido", "rechazado"), ("recibido", "cancelado"),
     ("aceptado", "preparando"), ("aceptado", "cancelado"),
     ("preparando", "listo"), ("preparando", "cancelado"),
-    ("listo", "asignado"), ("asignado", "en_camino"), ("en_camino", "entregado"),
+    ("listo", "asignado"), ("asignado", "en_comercio"), ("en_comercio", "en_camino"), ("en_camino", "entregado"),
 ]
 INVALIDAS = [par for par in product(ESTADOS, ESTADOS) if par not in VALIDAS]
 
@@ -65,14 +65,14 @@ def test_pedido_inexistente(sesion):
 
 def test_recorrido_completo_deja_un_evento_por_paso(sesion):
     pedido_id = crear_pedido(sesion)
-    for destino in ("aceptado", "preparando", "listo", "asignado", "en_camino", "entregado"):
+    for destino in ("aceptado", "preparando", "listo", "asignado", "en_comercio", "en_camino", "entregado"):
         cambiar_estado(sesion, pedido_id, destino)
     sesion.commit()
     eventos = sesion.scalars(
         select(OrderEvent).where(OrderEvent.order_id == pedido_id).order_by(OrderEvent.id)
     ).all()
     assert [e.to_status for e in eventos] == [
-        "aceptado", "preparando", "listo", "asignado", "en_camino", "entregado",
+        "aceptado", "preparando", "listo", "asignado", "en_comercio", "en_camino", "entregado",
     ]
 
 

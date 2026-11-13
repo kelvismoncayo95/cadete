@@ -11,7 +11,7 @@ let ocupado = false;
 const COLUMNAS = [
   ["Nuevos", ["recibido"], "Cuando llegue un pedido, aparece acá. Probá «Simular un pedido»."],
   ["En preparación", ["aceptado", "preparando"], "Los pedidos que aceptes se preparan acá."],
-  ["Listos", ["listo", "asignado", "en_camino"], "Los que están esperando o ya tienen repartidor."],
+  ["Listos para retirar", ["listo", "asignado", "en_comercio"], "Acá esperan al repartidor. Cuando lo retire, pasan a «En camino»."],
 ];
 
 const hace = (iso) => {
@@ -47,26 +47,34 @@ function tarjeta(p, alertas) {
     p.status === "listo" && alertas.has(p.id) ? el("div", { class: "banner-alerta", role: "alert" }, "Hace más de 10 minutos que no hay repartidor para este pedido.") : null,
     p.status === "listo" && !alertas.has(p.id) ? el("div", { class: "suave" }, "Buscando repartidor…") : null,
     p.status === "asignado" ? el("div", { class: "suave" }, "Un repartidor va a retirarlo.") : null,
-    p.status === "en_camino" ? el("div", { class: "suave" }, "Ya lo retiraron: va en camino al cliente.") : null,
+    p.status === "en_comercio" ? el("div", { class: "banner-alerta", style: "background:var(--info-fondo);color:var(--info)" }, "El repartidor llegó: entregale el pedido.") : null,
+    p.status === "en_camino" ? el("div", { class: "suave" }, "Ya lo retiró el repartidor: va en camino al cliente.") : null,
     botones.length ? el("div", { class: "fila", style: "justify-content:flex-start" }, botones) : null);
 }
 
-function pintar(pedidos, alertas) {
+function pintar(pedidos, alertas, billetera) {
   const terminados = pedidos.filter((p) => ["entregado", "rechazado", "cancelado"].includes(p.status));
+  const enCamino = pedidos.filter((p) => p.status === "en_camino");
+  const cobrado = new Map(billetera.movements.filter((m) => m.concept === "pago_comercio").map((m) => [m.order_id, m.amount_cents]));
   raiz.replaceChildren(...[
     el("div", { class: "fila" }, el("div", {}, el("h1", {}, "Tablero de pedidos"), el("p", { class: "suave" }, yo.display_name)),
       el("div", { class: "fila" },
         el("button", { class: "btn chico", type: "button", onclick: (e) => simular(e.currentTarget) }, "Simular un pedido"),
-        el("div", { class: "chip exito" }, `${terminados.filter((p) => p.status === "entregado").length} entregados`))),
+        el("div", { class: "chip exito", title: "Lo que te pagaron hoy por los pedidos entregados (90 % de los productos)" }, `Ganado hoy: ${dinero(billetera.today_cents)}`))),
     el("div", { class: "tablero" }, COLUMNAS.map(([titulo, estados, vacio]) => {
       const lista = pedidos.filter((p) => estados.includes(p.status));
       return el("section", { class: "columna", "aria-label": titulo },
         el("h2", {}, titulo, el("span", { class: "chip" }, lista.length)),
         lista.length ? el("div", { class: "apilado" }, lista.map((p) => tarjeta(p, alertas))) : el("div", { class: "vacio" }, vacio));
     })),
+    // Aparte: lo que ya retiró el repartidor deja de ser una comanda del local y pasa a «En camino».
+    el("section", { class: "columna", style: "margin-top:18px", "aria-label": "En camino" },
+      el("h2", {}, "En camino al cliente", el("span", { class: "chip acento" }, enCamino.length)),
+      enCamino.length ? el("div", { class: "rejilla" }, enCamino.map((p) => tarjeta(p, alertas))) : el("div", { class: "vacio" }, "Cuando un repartidor retire un pedido, pasa acá.")),
     terminados.length ? el("details", { style: "margin-top:20px" }, el("summary", { class: "suave" }, `Finalizados (${terminados.length})`),
       el("div", { class: "apilado", style: "margin-top:10px" }, terminados.slice(0, 10).map((p) =>
-        el("div", { class: "tarjeta fila" }, el("span", {}, `#${p.id.slice(0, 6).toUpperCase()} · ${hace(p.created_at)}`), chipEstado(p.status))))) : null,
+        el("div", { class: "tarjeta fila" }, el("span", {}, `#${p.id.slice(0, 6).toUpperCase()} · ${hace(p.created_at)}`),
+          el("span", { class: "fila" }, cobrado.has(p.id) ? el("b", { class: "dinero", style: "color:var(--exito)" }, `+ ${dinero(cobrado.get(p.id))}`) : null, chipEstado(p.status)))))) : null,
   ].filter(Boolean));
 }
 
@@ -74,12 +82,12 @@ async function cargar() {
   if (ocupado) return;
   ocupado = true;
   try {
-    const [pedidos, avisos] = await Promise.all([api("/orders"), api("/merchant/alerts")]);
+    const [pedidos, avisos, billetera] = await Promise.all([api("/orders"), api("/merchant/alerts"), api("/wallet")]);
     await Promise.all(pedidos.filter((p) => !detalles.has(p.id)).map(async (p) => detalles.set(p.id, await api(`/orders/${p.id}`))));
     const ids = new Set(pedidos.map((p) => p.id));
     if (conocidos) for (const id of ids) if (!conocidos.has(id)) toast("Llegó un pedido nuevo", "ok");
     conocidos = ids;
-    pintar(pedidos, new Set(avisos.map((a) => a.order_id)));
+    pintar(pedidos, new Set(avisos.map((a) => a.order_id)), billetera);
   } catch (e) { if (e.estado !== 401) toast(e.message, "error"); }
   ocupado = false;
 }

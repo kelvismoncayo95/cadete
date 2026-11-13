@@ -19,8 +19,9 @@ from app.schemas.order import OrderDetailOut
 from app.services.couriers import actualizar_posicion
 from app.services.dispatch import responder_oferta
 from app.services.errors import ErrorDeNegocio
-from app.services.events import publicar_estado, publicar_posicion
-from app.services.order_state import cambiar_estado
+from app.services.entrega import entregar, llegar_al_comercio, retirar
+from app.services.events import coordenadas_del_pedido, publicar_estado, publicar_posicion
+from app.services.pagos import calcular_pago_repartidor
 from app.services.orders import detalle_pedido
 from app.services.routing import get_router
 from app.services.permissions import pedidos_visibles
@@ -103,15 +104,18 @@ def mis_ofertas(usuario: User = Depends(requiere_rol("courier")), db: Session = 
         )
         .order_by(DispatchOffer.offered_at)
     ).all()
-    return [
-        OfertaOut(
+    ofertas = []
+    for o, p, m in filas:
+        c = coordenadas_del_pedido(db, p.id)
+        entrega_m = get_router().ruta([(c["mlat"], c["mlon"]), (c["dlat"], c["dlon"])]).distancia_m
+        ofertas.append(OfertaOut(
             id=o.id, order_id=p.id, merchant_name=m.name, merchant_address=m.address,
             delivery_address=p.delivery_address, distance_m=o.distance_m,
-            fee_cents=p.delivery_fee_cents, expires_at=o.expires_at,
-            seconds_left=max(0, int((o.expires_at - ahora).total_seconds())),
-        )
-        for o, p, m in filas
-    ]
+            pay_cents=calcular_pago_repartidor(o.distance_m or 0, entrega_m),
+            pickup_m=o.distance_m, delivery_m=round(entrega_m),
+            expires_at=o.expires_at, seconds_left=max(0, int((o.expires_at - ahora).total_seconds())),
+        ))
+    return ofertas
 
 
 @router.post("/offers/{offer_id}/accept", response_model=OrderDetailOut)
@@ -141,6 +145,22 @@ def _mi_pedido(db: Session, usuario: User, order_id: uuid.UUID) -> Order:
     return pedido
 
 
+@router.post("/orders/{order_id}/arrived", response_model=OrderDetailOut)
+def llegue_al_comercio(
+    order_id: uuid.UUID,
+    usuario: User = Depends(requiere_rol("courier")),
+    db: Session = Depends(get_db),
+    r: redis.Redis = Depends(get_redis),
+):
+    """«Llegué al comercio»: solo se acepta si estás a menos de 25 m (del comercio o de su calle)."""
+    pedido = _mi_pedido(db, usuario, order_id)
+    llegar_al_comercio(db, pedido, usuario.id)
+    db.commit()
+    publicar_estado(db, r, pedido.id)
+    db.refresh(pedido)
+    return detalle_pedido(db, pedido)
+
+
 @router.post("/orders/{order_id}/picked-up", response_model=OrderDetailOut)
 def retire_el_pedido(
     order_id: uuid.UUID,
@@ -148,8 +168,9 @@ def retire_el_pedido(
     db: Session = Depends(get_db),
     r: redis.Redis = Depends(get_redis),
 ):
+    """«Retiré el pedido»: solo después de haber marcado la llegada al comercio."""
     pedido = _mi_pedido(db, usuario, order_id)
-    cambiar_estado(db, pedido.id, "en_camino", actor_user_id=usuario.id)
+    retirar(db, pedido, usuario.id)
     db.commit()
     publicar_estado(db, r, pedido.id)
     db.refresh(pedido)
@@ -163,10 +184,32 @@ def entregue_el_pedido(
     db: Session = Depends(get_db),
     r: redis.Redis = Depends(get_redis),
 ):
+    """«Entregué el pedido»: solo a menos de 25 m del cliente. Al entregar se cobra y se paga a todos."""
     pedido = _mi_pedido(db, usuario, order_id)
-    cambiar_estado(db, pedido.id, "entregado", actor_user_id=usuario.id)
-    _mi_repartidor(db, usuario).status = "available"  # queda libre para el próximo pedido
+    entregar(db, pedido, usuario.id)
     db.commit()
     publicar_estado(db, r, pedido.id)
     db.refresh(pedido)
     return detalle_pedido(db, pedido)
+
+
+class PilotoIn(BaseModel):
+    activo: bool
+
+
+@router.post("/autopilot", status_code=204)
+def piloto_automatico(
+    datos: PilotoIn,
+    usuario: User = Depends(requiere_rol("courier")),
+    db: Session = Depends(get_db),
+    r: redis.Redis = Depends(get_redis),
+) -> Response:
+    """Demo: el simulador conduce la moto de este repartidor por las calles hacia su próximo destino.
+
+    No marca ningún paso: llegar, retirar y entregar los hace la persona con los botones."""
+    clave = f"autopilot:{_mi_repartidor(db, usuario).id}"
+    if datos.activo:
+        r.set(clave, "1", ex=900)
+    else:
+        r.delete(clave)
+    return Response(status_code=204)

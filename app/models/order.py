@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base
 
 ESTADOS = (
-    "recibido", "aceptado", "preparando", "listo", "asignado",
+    "recibido", "aceptado", "preparando", "listo", "asignado", "en_comercio",
     "en_camino", "entregado", "rechazado", "cancelado",
 )
 
@@ -22,7 +22,7 @@ class Order(Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ('recibido','aceptado','preparando','listo','asignado',"
-            "'en_camino','entregado','rechazado','cancelado')",
+            "'en_comercio','en_camino','entregado','rechazado','cancelado')",
             name="status",
         ),
         CheckConstraint("subtotal_cents > 0", name="subtotal_positive"),
@@ -34,7 +34,7 @@ class Order(Base):
         # Un repartidor no puede tener dos pedidos activos a la vez.
         Index(
             "ux_courier_active_order", "courier_id", unique=True,
-            postgresql_where=text("status IN ('asignado','en_camino')"),
+            postgresql_where=text("status IN ('asignado','en_comercio','en_camino')"),
         ),
     )
 
@@ -51,6 +51,7 @@ class Order(Base):
     delivery_fee_cents: Mapped[int] = mapped_column(BigInteger)
     total_cents: Mapped[int] = mapped_column(BigInteger)
     notes: Mapped[str | None] = mapped_column(String(200))
+    courier_pay_cents: Mapped[int | None] = mapped_column(BigInteger)   # lo que cobra el repartidor (se fija al aceptar)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

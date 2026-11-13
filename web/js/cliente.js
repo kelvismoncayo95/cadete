@@ -143,10 +143,10 @@ async function pantallaPedido(merchantId) {
 const MENSAJES = {
   recibido: "Esperando que el comercio acepte tu pedido.", aceptado: "El comercio aceptó tu pedido.",
   preparando: "Están preparando tu pedido.", listo: "Estamos buscando un repartidor para tu pedido.",
-  asignado: "Un repartidor va al comercio a retirar tu pedido.", en_camino: "Tu pedido va en camino.",
+  asignado: "Un repartidor va al comercio a retirar tu pedido.", en_comercio: "Tu repartidor llegó al comercio y está retirando tu pedido.", en_camino: "Tu pedido va en camino.",
   entregado: "¡Tu pedido fue entregado!", rechazado: "El comercio no pudo aceptar tu pedido.", cancelado: "Cancelaste este pedido.",
 };
-const PASO_DE = { recibido: 0, aceptado: 0, preparando: 1, listo: 2, asignado: 2, en_camino: 3, entregado: 4 };
+const PASO_DE = { recibido: 0, aceptado: 0, preparando: 1, listo: 2, asignado: 2, en_comercio: 2, en_camino: 3, entregado: 4 };
 const CANCELABLES = ["recibido", "aceptado", "preparando"];
 
 async function pantallaSeguir(orderId) {
@@ -172,14 +172,22 @@ async function pantallaSeguir(orderId) {
       el("div", { class: "fila", style: "margin-top:6px" }, el("p", { class: "estado-grande" }, MENSAJES[d.status]), chipEstado(d.status)),
       ["rechazado", "cancelado"].includes(d.status) ? null : el("ol", { class: "linea-tiempo", "aria-label": "Progreso" },
         PASOS.map((p, i) => el("li", { class: i < paso ? "hecho" : i === paso ? "hecho actual" : "", "aria-current": i === paso ? "step" : null }, ESTADOS[p][0].replace(" · buscando repartidor", "")))),
+      cobro != null ? el("p", { class: "banner-alerta", style: "background:var(--exito-fondo);color:var(--exito)" }, `Te cobramos ${dinero(cobro)} (productos + envío).`) : null,
       d.eta_min != null ? el("p", {}, "Llega en unos ", el("b", {}, `${d.eta_min} minuto${d.eta_min === 1 ? "" : "s"}`), el("span", { class: "suave" }, " (estimación por calles)")) : null,
       !conectado ? el("p", { class: "chip alerta", role: "status" }, "Reconectando…") : null,
       detalle,
       cancelable ? el("button", { class: "btn peligro ancho", type: "button", style: "margin-top:10px", onclick: cancelar }, "Cancelar pedido") : null,
     ].filter(Boolean));
   }
-  let ultimo;
+  let ultimo, cobro = null;
   const repintar = () => ultimo && pintarHoja(ultimo);
+  async function buscarCobro() {   // al entregar se le cobra al cliente: se muestra cuánto
+    try {
+      const w = await api("/wallet");
+      const m = w.movements.find((x) => x.order_id === orderId && x.concept === "cobro_cliente");
+      if (m) { cobro = -m.amount_cents; repintar(); }
+    } catch { /* si falla, simplemente no se muestra */ }
+  }
 
   async function cancelar() {
     if (!confirm("¿Querés cancelar este pedido?")) return;
@@ -198,6 +206,7 @@ async function pantallaSeguir(orderId) {
     mapa.loaded() ? dibujar() : mapa.once("load", dibujar);
     if (!mapa._encuadrado) { encuadrar(mapa, [[c.lon, c.lat], [dst.lon, dst.lat], ...(rep ? [[rep.lon, rep.lat]] : [])], { abajo: 320, arriba: 90, lados: 60 }); mapa._encuadrado = true; }
     pintarHoja(d);
+    if (d.status === "entregado") buscarCobro();
     if (["entregado", "rechazado", "cancelado"].includes(d.status)) cerrarStream?.();
   }
   function aplicarPosicion(d) {
