@@ -59,7 +59,7 @@ CREATE TABLE orders (
   courier_id         UUID REFERENCES couriers(id),
   status             VARCHAR(12) NOT NULL
                      CHECK (status IN ('recibido','aceptado','preparando','listo',
-                                       'asignado','en_camino','entregado',
+                                       'asignado','en_comercio','en_camino','entregado',
                                        'rechazado','cancelado')),
   delivery_address   VARCHAR(160) NOT NULL,
   delivery_location  GEOGRAPHY(Point, 4326) NOT NULL,
