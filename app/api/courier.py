@@ -10,6 +10,7 @@ from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import requiere_rol
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.redis import get_redis
 from app.models import Courier, DispatchOffer, Merchant, Order, User
@@ -21,6 +22,7 @@ from app.services.errors import ErrorDeNegocio
 from app.services.events import publicar_estado, publicar_posicion
 from app.services.order_state import cambiar_estado
 from app.services.orders import detalle_pedido
+from app.services.routing import get_router
 from app.services.permissions import pedidos_visibles
 
 router = APIRouter(prefix="/courier", tags=["repartidor"])
@@ -50,8 +52,14 @@ def enviar_posicion(
     r: redis.Redis = Depends(get_redis),
 ) -> Response:
     repartidor = _mi_repartidor(db, usuario)
-    actualizar_posicion(db, r, repartidor, datos.lat, datos.lon)
-    publicar_posicion(db, r, repartidor, datos.lat, datos.lon)
+    lat, lon = datos.lat, datos.lon
+    ajuste = get_router().ajustar((lat, lon))
+    if ajuste is not None:
+        if ajuste[1] > settings.max_distancia_a_calle_m:
+            raise ErrorDeNegocio(422, "Ese punto no está sobre una calle. Tocá un punto más cerca de una calle.")
+        (lat, lon), _ = ajuste   # la moto queda ENCIMA de la calle
+    actualizar_posicion(db, r, repartidor, lat, lon)
+    publicar_posicion(db, r, repartidor, lat, lon)
     return Response(status_code=204)
 
 

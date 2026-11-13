@@ -17,6 +17,8 @@ const marcasPedido = { comercio: null, destino: null };
 async function enviarPosicion(lngLat) {
   try {
     await api("/courier/location", { metodo: "POST", cuerpo: { lat: lngLat[1], lon: lngLat[0] } });
+    const st = await api("/courier/status");   // el servidor ajusta mi posición a la calle más cercana
+    lngLat = st.lat != null ? [st.lon, st.lat] : lngLat;
     miPos = lngLat;
     if (miMarcador) moverSuave(miMarcador, lngLat); else miMarcador = ponerRepartidor(mapa, lngLat, "Yo");
     miMarcador.getElement().classList.toggle("ocupado", estado === "busy");
@@ -76,8 +78,7 @@ function mostrarPedido(d) {
   const c = d.merchant, dst = d.destino;
   marcasPedido.comercio ??= ponerComercio(mapa, [c.lon, c.lat], "Comercio");
   marcasPedido.destino ??= ponerDestino(mapa, [dst.lon, dst.lat], "Cliente");
-  const camino = d.status === "en_camino" ? [miPos ?? [c.lon, c.lat], [dst.lon, dst.lat]] : [miPos ?? [c.lon, c.lat], [c.lon, c.lat], [dst.lon, dst.lat]];
-  const dibujar = () => dibujarRuta(mapa, camino);
+  const dibujar = () => dibujarRuta(mapa, d.route);   // ruta por calles, calculada por el servidor
   mapa.loaded() ? dibujar() : mapa.once("load", dibujar);
   if (pedidoAbierto && !mapa._encuadradoPedido) { encuadrar(mapa, [[c.lon, c.lat], [dst.lon, dst.lat], ...(miPos ? [miPos] : [])], { abajo: 40, arriba: 40, lados: 60 }); mapa._encuadradoPedido = true; }
 }
@@ -103,7 +104,7 @@ async function actualizar() {
     miMarcador?.getElement().classList.toggle("ocupado", estado === "busy");
     if (activo && pedidoAbierto !== activo.id) {
       limpiarPedido(); pedidoAbierto = activo.id;
-      cerrarStream = suscribir(`/orders/${activo.id}/live`, { estado: mostrarPedido, posicion: () => {} });
+      cerrarStream = suscribir(`/orders/${activo.id}/live`, { estado: mostrarPedido, posicion: (p) => p.route && dibujarRuta(mapa, p.route) });
     }
     if (!activo && pedidoAbierto) limpiarPedido();
     pintarPanel();

@@ -25,3 +25,19 @@ def minutos_estimados(metros: float, velocidad_kmh: float) -> int:
     if metros <= 0:
         return 0
     return math.ceil(metros / (velocidad_kmh * 1000 / 60))
+
+
+def punto_a_distancia(coordenadas: list[tuple[float, float]], metros: float) -> tuple[float, float, bool]:
+    """Camina `metros` por una polilínea de calles [(lat, lon), ...] (doblando en cada esquina).
+
+    Devuelve (lat, lon, llegó_al_final)."""
+    if len(coordenadas) < 2:
+        return (*coordenadas[0], True)
+    restante = metros
+    for (lat1, lon1), (lat2, lon2) in zip(coordenadas, coordenadas[1:]):
+        tramo = distancia_m(lat1, lon1, lat2, lon2)
+        if restante <= tramo and tramo > 0:
+            lat, lon = mover_hacia(lat1, lon1, lat2, lon2, restante)
+            return lat, lon, False
+        restante -= tramo
+    return (*coordenadas[-1], True)

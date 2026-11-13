@@ -34,6 +34,7 @@ Veinte pasos pequeños, cada uno con su condición de «hecho cuando». **El com
 | 9 | Despacho: oferta, aceptación, expiración y siguiente | SKIP LOCKED, tareas con reintentos | dos pedidos simultáneos con un repartidor: solo uno lo recibe; una oferta vencida pasa al siguiente |
 | 10 | Seguimiento en vivo con SSE y simulador de repartidores | SSE, Redis | el cliente ve moverse al repartidor y, al reconectar, recupera el estado |
 | 11 | Mapa propio de Montevideo (TOPE: 1 semana) | PMTiles, `pmtiles extract`, MapLibre, estilo | el mapa se ve como el diseño de UX/UI y muestra la atribución |
+| 11b | Rutas por calles con OSRM (pedido de Kelvis: nada en línea recta) | grafos dirigidos, snapping, matrices de tiempos | la ruta sigue las calles sin ir en contramano; el «más cercano» es por tiempo de viaje; hay respaldo si OSRM cae |
 | 12 | Web para cliente, comercio, repartidor y administrador | HTML, CSS y JS vanilla | un recorrido completo desde el iPhone |
 | 13 | AWS con Terraform como ejercicio (alerta de gasto primero) | servicios de AWS, Terraform ⚠ | se levanta, se prueba, se documenta con capturas y se destruye sin dejar nada encendido |
 | 14 | Demo pública barata y estable, con despliegue automático y reinicio nocturno | CD, tareas programadas | al hacer merge en main se despliega solo y la demo se reinicia sola |
@@ -60,4 +61,4 @@ Con 2 a 4 horas por día: de 8 a 10 semanas para los pasos 0 a 15. Es un cálcul
 
 ## 6. Después (no ahora)
 
-Fases 4 a 6 · despacho anticipado (mientras el comercio prepara) · ruteo por calles reales · modo invitado con cuenta propia · notificaciones · calificaciones de repartidores · más ciudades.
+Fases 4 a 6 · despacho anticipado (mientras el comercio prepara) · modo invitado con cuenta propia · notificaciones · calificaciones de repartidores · más ciudades.

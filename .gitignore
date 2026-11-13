@@ -40,3 +40,6 @@ docs/ESTUDIO_*.pdf
 
 # Herramienta de mapas descargada (se baja con map/extraer.sh)
 map/bin/
+
+# Datos de ruteo (grandes; se generan con routing/preparar.sh)
+routing/data/

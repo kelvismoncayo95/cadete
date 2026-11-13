@@ -33,8 +33,15 @@ class Settings(BaseSettings):
     max_ofertas_por_pedido: int = 5
     aviso_sin_repartidor_minutos: int = 10
 
-    # Tiempo estimado (línea recta a velocidad fija: es una estimación, y así se le dice al cliente)
-    velocidad_estimada_kmh: float = 20.0
+    # Rutas por calles (OSRM). Si no responde, se usa línea recta como respaldo.
+    osrm_url: str = "http://localhost:5001"
+    osrm_timeout_s: float = 2.0
+    velocidad_estimada_kmh: float = 30.0   # solo para el respaldo en línea recta
+    # La demo corre acelerada (el simulador va más rápido que un repartidor real): el tiempo estimado
+    # se divide por este factor para que coincida con lo que se ve en el mapa. En la vida real: 1.
+    aceleracion_demo: float = 1.0
+    # Un destino o una posición a más de esto de una calle se rechaza (por ejemplo, en el agua).
+    max_distancia_a_calle_m: float = 150.0
 
     database_url: str | None = None
     test_database_url: str | None = None

@@ -31,6 +31,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # Motor de rutas por calles (OSRM): respeta sentidos únicos y giros prohibidos.
+  # Los datos se preparan una vez con routing/preparar.sh.
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v26.7.0-debian
+    container_name: cadete-osrm
+    restart: unless-stopped
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "100", "/data/uruguay.osrm"]
+    volumes:
+      - ./routing/data:/data:ro
+    ports:
+      - "5001:5000"
+    mem_limit: 700m
+
   api:
     build: .
     container_name: cadete-api
@@ -40,12 +53,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      osrm:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cadete}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cadete}
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET en el .env}
-      # La demo corre acelerada (el simulador se mueve a ~90 km/h): el tiempo estimado usa la misma velocidad.
-      VELOCIDAD_ESTIMADA_KMH: ${VELOCIDAD_ESTIMADA_KMH:-90}
+      OSRM_URL: http://osrm:5000
+      # La demo corre acelerada (el simulador va ~3 veces más rápido que un repartidor real): el tiempo
+      # estimado se divide por lo mismo para que coincida con lo que se ve en el mapa.
+      ACELERACION_DEMO: ${ACELERACION_DEMO:-3}
     ports:
       - "8001:8000"
     volumes:
@@ -62,9 +79,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      osrm:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cadete}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cadete}
       REDIS_URL: redis://redis:6379/0
+      OSRM_URL: http://osrm:5000
     volumes:
       - ./app:/app/app
 
@@ -78,9 +98,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      osrm:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cadete}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cadete}
       REDIS_URL: redis://redis:6379/0
+      OSRM_URL: http://osrm:5000
     volumes:
       - ./app:/app/app
 

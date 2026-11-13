@@ -9,6 +9,7 @@ from app.core.observability import metricas
 from app.core.redis import get_redis
 from app.models import AuditLog, Courier, DispatchOffer, Order, User
 from app.models.order import ESTADOS
+from app.services.routing import get_router
 from app.services.heartbeat import LIMITE_SANO_S, edad_s
 
 router = APIRouter(tags=["operación"])
@@ -59,10 +60,13 @@ def estado_del_sistema(
     for proceso in ("worker", "simulador"):
         edad = edad_s(r, proceso) if checks["redis"]["ok"] else None
         checks[proceso] = {"ok": edad is not None and edad <= LIMITE_SANO_S, "edad_s": None if edad is None else round(edad, 1)}
+    router = get_router()
+    router.ajustar((-34.9065, -56.1995))   # una consulta de prueba: así sabemos si el motor de rutas responde
+    checks["rutas"] = {"ok": not router.usando_respaldo, "motor": "recta" if router.usando_respaldo else "osrm"}
     if not (checks["db"]["ok"] and checks["redis"]["ok"]):
         estado = "caido"
-    elif not checks["worker"]["ok"]:
-        estado = "degradado"   # sin trabajador no se vencen las ofertas ni se reintentan los despachos
+    elif not checks["worker"]["ok"] or not checks["rutas"]["ok"]:
+        estado = "degradado"   # sin trabajador no vencen las ofertas; sin motor de rutas se usa línea recta
     else:
         estado = "ok"          # el simulador es opcional: no cuenta
     sin_repartidor = 0

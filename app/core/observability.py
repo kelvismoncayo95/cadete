@@ -37,6 +37,7 @@ def configurar_logs(nivel: int = logging.INFO) -> None:
         manejador.setFormatter(JsonFormatter())
         raiz.addHandler(manejador)
     raiz.setLevel(nivel)
+    logging.getLogger("httpx").setLevel(logging.WARNING)   # una línea por cada consulta a OSRM es ruido
 
 
 class Metricas:
