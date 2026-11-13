@@ -79,8 +79,38 @@ async function pantallaPedido(merchantId) {
 
   const resumen = el("div", { class: "resumen" });
   const confirmar = el("button", { class: "btn ancho", type: "button" }, "Confirmar pedido");
-  const direccion = el("input", { type: "text", id: "direccion", value: "Mi casa (dirección de prueba)", maxlength: "160" });
+  const direccion = el("input", { type: "text", id: "direccion", placeholder: "Ej: Av. 18 de Julio 1500, o Colonia y Ejido", maxlength: "160", autocomplete: "street-address" });
   direccion.addEventListener("input", () => { claveIdempotencia = null; });
+  const sugerencias = el("div", { class: "apilado", style: "margin-top:8px", "aria-live": "polite" });
+  let pin = null, mapa = null;
+
+  // Mueve el destino a un punto (lon, lat) y lo muestra en el mapa.
+  function moverDestino(lonLat, texto, acercar = true) {
+    destino = lonLat; cambio();
+    pin?.setLngLat(destino);
+    if (texto != null) direccion.value = texto;
+    if (acercar && mapa) mapa.flyTo({ center: destino, zoom: Math.max(mapa.getZoom(), 16), duration: 600 });
+  }
+  async function buscarDireccion() {
+    const q = direccion.value.trim();
+    if (q.length < 3) { sugerencias.replaceChildren(el("p", { class: "suave", style: "margin:0" }, "Escribí al menos 3 letras.")); return; }
+    sugerencias.replaceChildren(el("div", { class: "esqueleto", style: "height:44px" }));
+    try {
+      const { resultados } = await api(`/geocode?q=${encodeURIComponent(q)}`);
+      if (!resultados.length) {
+        sugerencias.replaceChildren(el("p", { class: "suave", style: "margin:0" }, "No encontramos esa dirección. Probá con otra (por ejemplo «Colonia y Ejido») o marcala tocando el mapa."));
+        return;
+      }
+      sugerencias.replaceChildren(el("p", { class: "suave", style: "margin:0" }, "Elegí la dirección correcta:"),
+        ...resultados.map((r) => el("button", { class: "btn secundario ancho", type: "button", style: "justify-content:space-between;text-align:left",
+          onclick: () => {
+            moverDestino([r.lon, r.lat], r.etiqueta);
+            sugerencias.replaceChildren(el("p", { class: r.exacta ? "chip exito" : "chip alerta", style: "margin:0" },
+              r.exacta ? "Dirección encontrada. Podés ajustar el punto tocando el mapa." : "Ubicación aproximada: ajustá el punto tocando el mapa."));
+          } }, el("span", {}, r.etiqueta), el("span", { class: `chip ${r.exacta ? "exito" : ""}` }, r.exacta ? "exacta" : "aprox."))));
+    } catch (e) { sugerencias.replaceChildren(el("p", { class: "chip peligro", style: "margin:0" }, e.message)); }
+  }
+  direccion.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); buscarDireccion(); } });
 
   function pintarResumen() {
     const subtotal = productos.reduce((t, p) => t + p.price_cents * (cantidades.get(p.id) ?? 0), 0);
@@ -112,17 +142,20 @@ async function pantallaPedido(merchantId) {
     el("h1", {}, comercio.name), el("p", { class: "suave" }, `${comercio.category} · ${comercio.address}`),
     el("div", { class: "tarjeta" }, filas),
     el("h2", {}, "¿Dónde te lo llevamos?"),
-    el("p", { class: "suave" }, "Tocá el mapa para marcar el destino. Por ahora solo entregamos en Montevideo."),
-    el("div", { class: "mapa-caja" }, el("div", { class: "mapa-interno", id: "mapa" })),
-    el("label", { for: "direccion" }, "Dirección"), direccion,
+    el("p", { class: "suave" }, "Escribí la dirección y buscala, o tocá el mapa para marcar el destino. Solo entregamos en Montevideo."),
+    el("label", { for: "direccion" }, "Dirección de entrega"),
+    el("div", { class: "fila", style: "flex-wrap:nowrap" }, el("div", { style: "flex:1" }, direccion),
+      el("button", { class: "btn", type: "button", onclick: buscarDireccion }, "Buscar")),
+    sugerencias,
+    el("div", { class: "mapa-caja", style: "margin-top:12px" }, el("div", { class: "mapa-interno", id: "mapa" })),
     el("h2", {}, "Resumen"), el("div", { class: "tarjeta" }, resumen),
     el("div", { style: "margin-top:14px" }, confirmar));
   pintarResumen();
 
-  const mapa = await abrirMapa("mapa", { centro: destino, zoom: 13.5 });
+  mapa = await abrirMapa("mapa", { centro: destino, zoom: 13.5 });
   ponerComercio(mapa, centroDe(comercio), comercio.name.replace(" (demo)", ""));
-  const pin = ponerDestino(mapa, destino, "Entregar acá");
-  mapa.on("click", (e) => { destino = [e.lngLat.lng, e.lngLat.lat]; pin.setLngLat(destino); cambio(); });
+  pin = ponerDestino(mapa, destino, "Entregar acá");
+  mapa.on("click", (e) => { moverDestino([e.lngLat.lng, e.lngLat.lat], "Punto marcado en el mapa", false); sugerencias.replaceChildren(); });
   encuadrar(mapa, [centroDe(comercio), destino], { abajo: 40, arriba: 40, lados: 70 });
 
   confirmar.addEventListener("click", async () => {
@@ -130,7 +163,7 @@ async function pantallaPedido(merchantId) {
     claveIdempotencia ??= nuevoUuid();
     try {
       const pedido = await api("/orders", { metodo: "POST", clave: claveIdempotencia, cuerpo: {
-        merchant_id: merchantId, delivery_address: direccion.value.trim() || "Sin dirección",
+        merchant_id: merchantId, delivery_address: direccion.value.trim() || "Punto marcado en el mapa",
         delivery_lat: destino[1], delivery_lon: destino[0],
         items: [...cantidades].map(([product_id, quantity]) => ({ product_id, quantity })),
       } });

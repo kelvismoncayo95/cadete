@@ -99,6 +99,7 @@ Los identificadores `{id}` son UUID.
 | GET /me | datos del usuario |
 | GET /merchants | comercios abiertos |
 | GET /merchants/{id}/products | productos de un comercio |
+| GET /geocode?q= | buscar una dirección escrita (hasta 5 puntos posibles; 30 búsquedas por minuto) |
 | POST /orders | crear un pedido (con Idempotency-Key) |
 | GET /orders y GET /orders/{id} | mis pedidos y su detalle |
 | POST /orders/{id}/cancel | cancelar (cliente) |
