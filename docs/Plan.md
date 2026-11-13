@@ -35,6 +35,8 @@ Veinte pasos pequeños, cada uno con su condición de «hecho cuando». **El com
 | 10 | Seguimiento en vivo con SSE y simulador de repartidores | SSE, Redis | el cliente ve moverse al repartidor y, al reconectar, recupera el estado |
 | 11 | Mapa propio de Montevideo (TOPE: 1 semana) | PMTiles, `pmtiles extract`, MapLibre, estilo | el mapa se ve como el diseño de UX/UI y muestra la atribución |
 | 11b | Rutas por calles con OSRM (pedido de Kelvis: nada en línea recta) | grafos dirigidos, snapping, matrices de tiempos | la ruta sigue las calles sin ir en contramano; el «más cercano» es por tiempo de viaje; hay respaldo si OSRM cae |
+| 11c | Demo amigable y entrega paso a paso con pagos (pedido de Kelvis) | geocercas, libro de movimientos, ventanas de prioridad | «llegué», «retiré» y «entregué» solo cerca del lugar; se cobra al cliente y se paga al comercio y al repartidor (pago por distancia); el comercio ve «En camino» aparte; cada rol puede probar su parte de la demo |
+| 11d | Direcciones escritas con geocodificador propio (pedido de Kelvis) | trigramas, interpolación, cruces | el cliente escribe cualquier dirección y el sistema la ubica (exacta o aprox.) con datos de OpenStreetMap, sin servicios externos |
 | 12 | Web para cliente, comercio, repartidor y administrador | HTML, CSS y JS vanilla | un recorrido completo desde el iPhone |
 | 13 | AWS con Terraform como ejercicio (alerta de gasto primero) | servicios de AWS, Terraform ⚠ | se levanta, se prueba, se documenta con capturas y se destruye sin dejar nada encendido |
 | 14 | Demo pública barata y estable, con despliegue automático y reinicio nocturno | CD, tareas programadas | al hacer merge en main se despliega solo y la demo se reinicia sola |
@@ -62,3 +64,7 @@ Con 2 a 4 horas por día: de 8 a 10 semanas para los pasos 0 a 15. Es un cálcul
 ## 6. Después (no ahora)
 
 Fases 4 a 6 · despacho anticipado (mientras el comercio prepara) · modo invitado con cuenta propia · notificaciones · calificaciones de repartidores · más ciudades.
+
+## 7. Estado al 2026-11-13
+
+Hechos: pasos 0 a 12, 15, 11b, 11c y 11d (392 tests en verde). **Pendientes:** 13 (AWS con Terraform) y 14 (demo pública) —necesitan cuentas y decisiones del autor—, 19 (README en inglés final y guía de estudio en PDF) y, si se deciden, 16 a 18. Nada se subió a GitHub todavía.
