@@ -43,8 +43,17 @@ class Settings(BaseSettings):
     # Un destino o una posición a más de esto de una calle se rechaza (por ejemplo, en el agua).
     max_distancia_a_calle_m: float = 150.0
 
+    # Demo: repartidores «humanos» (los que maneja una persona, p. ej. "rosa") que reciben las ofertas primero,
+    # para que quien visita la demo pueda probar el rol de repartidor aunque haya repartidores simulados.
+    # Varios nombres separados por coma. Vacío = sin prioridad (comportamiento real).
+    repartidores_prioritarios: str = ""
+
     database_url: str | None = None
     test_database_url: str | None = None
+
+    @property
+    def prioritarios(self) -> set[str]:
+        return {n.strip() for n in self.repartidores_prioritarios.split(",") if n.strip()}
 
     @property
     def db_url(self) -> str:

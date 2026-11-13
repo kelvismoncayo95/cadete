@@ -194,7 +194,7 @@ def test_el_boton_simular_un_pedido(cliente, sesion):
     r = cliente.post("/demo/simulate-order", headers=cabecera(yo.id))
     assert r.status_code == 201 and r.json()["status"] == "recibido"
     assert sesion.get(Order, r.json()["id"]).notes == MARCA
-    assert cliente.post("/demo/simulate-order", headers=cabecera(sesion.scalar(select(User.id).where(User.role == "merchant")))).status_code == 403
+    assert cliente.post("/demo/simulate-order").status_code == 401   # sin sesión no hay botón
 
 
 def test_el_boton_sin_comercios_explica_que_pasa(cliente, sesion):

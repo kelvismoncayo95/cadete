@@ -60,6 +60,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET en el .env}
       OSRM_URL: http://osrm:5000
+      # En la demo, Rosa (repartidora manual) recibe las ofertas antes que los simulados.
+      REPARTIDORES_PRIORITARIOS: ${REPARTIDORES_PRIORITARIOS:-rosa}
       # La demo corre acelerada (el simulador va ~3 veces más rápido que un repartidor real): el tiempo
       # estimado se divide por lo mismo para que coincida con lo que se ve en el mapa.
       ACELERACION_DEMO: ${ACELERACION_DEMO:-3}
@@ -85,6 +87,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cadete}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cadete}
       REDIS_URL: redis://redis:6379/0
       OSRM_URL: http://osrm:5000
+      # En la demo, Rosa (repartidora manual) recibe las ofertas antes que los simulados.
+      REPARTIDORES_PRIORITARIOS: ${REPARTIDORES_PRIORITARIOS:-rosa}
     volumes:
       - ./app:/app/app
 
@@ -104,6 +108,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cadete}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cadete}
       REDIS_URL: redis://redis:6379/0
       OSRM_URL: http://osrm:5000
+      # En la demo, Rosa (repartidora manual) recibe las ofertas antes que los simulados.
+      REPARTIDORES_PRIORITARIOS: ${REPARTIDORES_PRIORITARIOS:-rosa}
     volumes:
       - ./app:/app/app
 

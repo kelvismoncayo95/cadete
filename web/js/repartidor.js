@@ -38,6 +38,12 @@ async function responder(oferta, aceptar) {
   } catch (e) { toast(e.message, "error"); }
   await actualizar();
 }
+async function pedirPrueba(boton) {
+  boton.disabled = true;
+  try { await api("/demo/simulate-order", { metodo: "POST" }); toast("Te mandamos un pedido de prueba: en unos segundos llega la oferta", "ok"); }
+  catch (e) { toast(e.message, "error"); }
+  boton.disabled = false;
+}
 async function avanzar(accionNombre) {
   try { await api(`/courier/orders/${activo.id}/${accionNombre}`, { metodo: "POST" }); await actualizar(); }
   catch (e) { toast(e.message, "error"); await actualizar(); }
@@ -50,7 +56,8 @@ function pintarPanel() {
       estado === "busy" ? null : el("span", { class: `chip ${estado === "available" ? "exito" : ""}` }, estado === "available" ? "Recibiendo ofertas" : "Sin ofertas")),
     estado === "busy" ? null : el("button", { class: "btn chico", type: "button", disabled: estado === "offline" && !miPos, onclick: () => cambiarEstado(estado === "available" ? "offline" : "available") },
       estado === "available" ? "Desconectarme" : "Ponerme disponible")));
-  if (!miPos) hijos.push(el("div", { class: "vacio" }, "1. Tocá el mapa para indicar dónde estás. 2. Ponete disponible para recibir ofertas."));
+  if (!miPos) hijos.push(el("div", { class: "vacio" }, "1. Tocá el mapa para indicar dónde estás. 2. Ponete disponible. 3. Pedí un pedido de prueba."));
+  else if (estado === "offline") hijos.push(el("div", { class: "vacio" }, "Ya estás en el mapa. Ahora tocá «Ponerme disponible» para recibir ofertas."));
 
   if (activo) {
     const enCamino = activo.status === "en_camino";
@@ -59,7 +66,8 @@ function pintarPanel() {
       el("div", { class: "fila" }, el("span", { class: "suave" }, "Tu ganancia"), el("b", { class: "dinero" }, dinero(activo.delivery_fee_cents))),
       el("button", { class: "btn ancho", type: "button", onclick: () => avanzar(enCamino ? "delivered" : "picked-up") }, enCamino ? "Entregué el pedido" : "Retiré el pedido")));
   } else if (estado === "available") {
-    if (!ofertas.length) hijos.push(el("div", { class: "vacio" }, "Esperando pedidos cerca tuyo…"));
+    if (!ofertas.length) hijos.push(el("div", { class: "vacio" }, el("p", { style: "margin:0 0 10px" }, "Esperando pedidos cerca tuyo…"),
+      el("button", { class: "btn", type: "button", onclick: (e) => pedirPrueba(e.currentTarget) }, "Mandarme un pedido de prueba")));
     for (const o of ofertas) {
       const falta = segundosHasta(o.expires_at);
       hijos.push(el("div", { class: "tarjeta apilado" },

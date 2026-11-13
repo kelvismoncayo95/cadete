@@ -9,7 +9,8 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import cast, delete, exists, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Courier, CourierPosition, DispatchOffer, Merchant
+from app.core.config import settings
+from app.models import Courier, CourierPosition, DispatchOffer, Merchant, User
 from app.services.routing import get_router
 
 RADIO_DE_BUSQUEDA_M = 5000  # 5 km (PRD, reglas de negocio)
@@ -49,7 +50,8 @@ def buscar_repartidor_mas_cercano(
     geometria = cast(Courier.last_location, Geometry)
     en_recta = func.ST_Distance(Courier.last_location, select(Merchant.location).where(Merchant.id == merchant_id).scalar_subquery())
     lista = (
-        select(Courier.id, func.ST_Y(geometria), func.ST_X(geometria))
+        select(Courier.id, func.ST_Y(geometria), func.ST_X(geometria), User.username)
+        .join(User, User.id == Courier.user_id)
         .where(
             Courier.status == "available",
             Courier.last_location.is_not(None),
@@ -66,10 +68,12 @@ def buscar_repartidor_mas_cercano(
         return None
 
     tabla = get_router().tabla([(c[1], c[2]) for c in candidatos], (comercio[0], comercio[1])) or []
+    prioritarios = settings.prioritarios   # demo: los repartidores «humanos» van primero
     ordenados = sorted(
-        ((t[0], t[1], c[0]) for c, t in zip(candidatos, tabla) if t is not None), key=lambda x: (x[0], str(x[2]))
+        ((0 if c[3] in prioritarios else 1, t[0], t[1], c[0]) for c, t in zip(candidatos, tabla) if t is not None),
+        key=lambda x: (x[0], x[1], str(x[3])),
     )
-    for _segundos, metros, courier_id in ordenados:
+    for _prioridad, _segundos, metros, courier_id in ordenados:
         elegido = db.execute(
             select(Courier)
             .where(

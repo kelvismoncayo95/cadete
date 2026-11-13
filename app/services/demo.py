@@ -16,6 +16,9 @@ from app.services.orders import crear_pedido
 # Los pedidos simulados se reconocen por esta marca en las notas: el simulador SOLO atiende esos,
 # así no se mete con los pedidos de una persona que esté probando la demo.
 MARCA = "[simulado]"
+# Los pedidos de prueba que se le mandan a un comercio llevan ESTA marca: no los toca el simulador,
+# los atiende la persona desde el tablero.
+MARCA_DEMO = "[demo]"
 
 
 # Destinos de la demo: puntos en tierra firme de distintos barrios (aproximados). Se eligieron a mano
@@ -41,12 +44,13 @@ def _destino_cerca(rng: random.Random, lat: float, lon: float) -> tuple[str, flo
     return rng.choice(cerca[:5])
 
 
-def crear_pedido_simulado(db: Session, r: redis.Redis, usuario: User, rng: random.Random) -> dict:
+def crear_pedido_simulado(db: Session, r: redis.Redis, usuario: User, rng: random.Random,
+                          comercio_id: uuid.UUID | None = None, marca: str = MARCA) -> dict:
     """Crea un pedido de juguete (con la marca de simulado) para ese cliente. Devuelve el cuerpo."""
     comercios = db.execute(text(
         "SELECT id, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon "
-        "FROM merchants WHERE is_open ORDER BY id"
-    )).all()
+        "FROM merchants WHERE is_open " + ("AND id = :id " if comercio_id else "") + "ORDER BY id"
+    ), {"id": comercio_id} if comercio_id else {}).all()
     if not comercios:
         raise ErrorDeNegocio(409, "No hay comercios abiertos para simular un pedido")
     comercio = rng.choice(comercios)
@@ -63,7 +67,7 @@ def crear_pedido_simulado(db: Session, r: redis.Redis, usuario: User, rng: rando
         delivery_address=f"Casa de prueba en {barrio} (demo)",
         delivery_lat=lat,
         delivery_lon=lon,
-        notes=MARCA,
+        notes=marca,
     )
     _, cuerpo, _ = crear_pedido(db, r, usuario, datos, f"sim-{uuid.uuid4()}")
     return cuerpo
