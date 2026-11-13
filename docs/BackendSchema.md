@@ -66,7 +66,8 @@ CREATE TABLE orders (
   subtotal_cents     BIGINT NOT NULL CHECK (subtotal_cents > 0),
   delivery_fee_cents BIGINT NOT NULL CHECK (delivery_fee_cents >= 0),
   total_cents        BIGINT NOT NULL CHECK (total_cents > 0),
-  notes              VARCHAR(200),
+  notes              VARCHAR(200),   -- marca de la demo: '[simulado]' o '[demo]'
+  courier_pay_cents  BIGINT,         -- lo que cobra el repartidor: se fija al aceptar la oferta
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -120,6 +121,31 @@ CREATE TABLE idempotency_keys (
   UNIQUE (user_id, key)
 );
 
+-- Libro de movimientos (dinero de juguete). Cada pedido ENTREGADO deja 4 asientos que suman cero.
+CREATE TABLE ledger_entries (
+  id           BIGSERIAL PRIMARY KEY,
+  order_id     UUID NOT NULL REFERENCES orders(id),
+  user_id      UUID REFERENCES users(id),          -- vacío = la plataforma
+  concept      VARCHAR(30) NOT NULL,               -- cobro_cliente, pago_comercio, pago_repartidor, plataforma
+  amount_cents BIGINT NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (order_id, concept)                       -- no se cobra dos veces
+);
+
+-- Geocodificador propio (datos de OpenStreetMap, se cargan con geocoder/cargar.py). Requiere la extensión pg_trgm.
+CREATE TABLE geo_calles (
+  id     SERIAL PRIMARY KEY,
+  nombre VARCHAR(160) NOT NULL,
+  norm   VARCHAR(160) NOT NULL,                    -- nombre normalizado (minúsculas, sin tildes, abreviaturas expandidas)
+  geom   geometry(MultiLineString, 4326) NOT NULL
+);
+CREATE TABLE geo_direcciones (
+  id         BIGSERIAL PRIMARY KEY,
+  calle_norm VARCHAR(160) NOT NULL,
+  numero     INTEGER NOT NULL,
+  geom       geometry(Point, 4326) NOT NULL
+);
+
 CREATE TABLE audit_log (
   id            BIGSERIAL PRIMARY KEY,
   actor_user_id UUID REFERENCES users(id),
@@ -139,6 +165,10 @@ CREATE INDEX ix_events_order         ON order_events (order_id, created_at);
 CREATE INDEX ix_positions_courier    ON courier_positions (courier_id, recorded_at);
 CREATE INDEX ix_offers_order         ON dispatch_offers (order_id, offered_at);
 CREATE INDEX ix_audit_created        ON audit_log (created_at);
+CREATE INDEX ix_ledger_user          ON ledger_entries (user_id, created_at);
+CREATE INDEX ix_geo_calles_geom      ON geo_calles USING GIST (geom);
+CREATE INDEX ix_geo_calles_norm_trgm ON geo_calles USING GIN (norm gin_trgm_ops);
+CREATE INDEX ix_geo_direcciones_calle_numero ON geo_direcciones (calle_norm, numero);
 
 -- Una sola oferta pendiente por pedido y por repartidor
 CREATE UNIQUE INDEX ux_offer_pending_order
@@ -148,7 +178,7 @@ CREATE UNIQUE INDEX ux_offer_pending_courier
 
 -- Un repartidor no puede tener dos pedidos activos
 CREATE UNIQUE INDEX ux_courier_active_order
-  ON orders (courier_id) WHERE status IN ('asignado','en_camino');
+  ON orders (courier_id) WHERE status IN ('asignado','en_comercio','en_camino');
 ```
 
 ## 2. Consulta clave: el repartidor más cercano
@@ -205,3 +235,11 @@ Las coordenadas exactas se definen en el paso 7, sobre el mapa. La contraseña d
 - `courier_positions` crece rápido; se conserva 7 días ⚠ y, si hace falta, se particiona por día.
 - Las tablas de analítica (fase 4) se diseñan entonces, separadas de estas.
 - El reinicio nocturno vacía la base de la demo completa, no fila por fila.
+
+## 7. Cambios respecto al borrador inicial (2026-11-13)
+
+- Estado nuevo **`en_comercio`** (el repartidor llegó al comercio) entre `asignado` y `en_camino`; el índice que impide dos pedidos activos por repartidor lo incluye.
+- Columna **`orders.courier_pay_cents`** y tabla **`ledger_entries`** (pagos de juguete que suman cero por pedido).
+- Tablas **`geo_calles`** y **`geo_direcciones`** (geocodificador propio; no tienen relación con las demás).
+- La consulta del «más cercano» de la sección 2 es el borrador inicial: la versión final filtra los 8 más cercanos en línea recta con `ST_DWithin` y elige entre ellos por el **tiempo real por calle** que calcula OSRM (ver `app/services/couriers.py`).
+- Las migraciones de Alembic son la fuente de verdad del esquema (`alembic/versions/`).
